@@ -1,0 +1,110 @@
+<div class="docker-container">
+  <div class="docker-content">
+    @if (!composePath()) {
+      <div class="empty-state">
+        <mat-icon>info</mat-icon>
+        <p>No docker-compose.yaml configured. Set its path in Settings to see services here.</p>
+      </div>
+    } @else {
+      <div class="docker-toolbar">
+        <span class="compose-path" [matTooltip]="composePath()!">{{ composePath() }}</span>
+        <span class="spacer"></span>
+        <button mat-icon-button (click)="loadServices()" [disabled]="loading()" aria-label="Reload services">
+          <mat-icon [class.spinning]="loading()">refresh</mat-icon>
+        </button>
+      </div>
+      @if (error()) {
+        <p class="error-banner">{{ error() }}</p>
+      }
+      @if (!loading() && services().length === 0 && !error()) {
+        <p class="empty-state-text">No services found in this compose file.</p>
+      }
+      <div class="service-list">
+        @for (row of sortedServices(); track row.service) {
+          <div class="service-row">
+            <button mat-icon-button class="favorite-toggle" (click)="toggleFavorite(row.service)"
+                    [attr.aria-label]="isFavorite(row.service) ? 'Unfavorite ' + row.service : 'Favorite ' + row.service">
+              <mat-icon [class.favorite-active]="isFavorite(row.service)">
+                {{ isFavorite(row.service) ? 'star' : 'star_border' }}
+              </mat-icon>
+            </button>
+            <span class="service-state" [class.state-running]="row.state === 'running'"
+                  [class.state-partial]="row.state === 'partial'">{{ row.state }}</span>
+            <span class="service-health" [class.health-healthy]="row.health === 'healthy'"
+                  [class.health-unhealthy]="row.health === 'unhealthy'"
+                  [class.health-starting]="row.health === 'starting'">{{ row.health ?? '' }}</span>
+            <span class="service-name">{{ row.service }}</span>
+            <span class="spacer"></span>
+            <button mat-button (click)="runAction(row.service, 'stop')" [disabled]="isAnyActionRunning(row.service)">
+              @if (isRunning(row.service, 'stop')) {
+                <mat-spinner diameter="16"></mat-spinner>
+              } @else {
+                <mat-icon>stop</mat-icon>
+              }
+              Stop
+            </button>
+            <button mat-button (click)="runAction(row.service, 'restart')" [disabled]="isAnyActionRunning(row.service)">
+              @if (isRunning(row.service, 'restart')) {
+                <mat-spinner diameter="16"></mat-spinner>
+              } @else {
+                <mat-icon>restart_alt</mat-icon>
+              }
+              Restart
+            </button>
+            <button mat-button (click)="runAction(row.service, 'pull_start')" [disabled]="isAnyActionRunning(row.service)">
+              @if (isRunning(row.service, 'pull_start')) {
+                <mat-spinner diameter="16"></mat-spinner>
+              } @else {
+                <mat-icon>cloud_download</mat-icon>
+              }
+              Pull &amp; Start
+            </button>
+            <button mat-button (click)="viewLogs(row.service)" [color]="isViewingLogs(row.service) ? 'primary' : null">
+              <mat-icon>article</mat-icon>
+              Logs
+            </button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  @if (consoleTitle()) {
+    <div class="docker-console" [class.expanded]="consoleExpanded()">
+      <div class="console-header" (click)="toggleConsole()">
+        @if (consoleMode() === 'logs') {
+          <span class="live-dot" matTooltip="Following live"></span>
+        } @else if (consoleActive()) {
+          <mat-spinner diameter="14"></mat-spinner>
+        } @else {
+          <mat-icon class="console-status-icon">terminal</mat-icon>
+        }
+        <span class="console-title">{{ consoleTitle() }}</span>
+        <span class="spacer"></span>
+        @if (consoleMode() === 'logs') {
+          <button mat-icon-button (click)="stopLogs(); $event.stopPropagation()" aria-label="Stop following logs"
+                  matTooltip="Stop following">
+            <mat-icon>stop_circle</mat-icon>
+          </button>
+        }
+        <button mat-icon-button (click)="clearConsole(); $event.stopPropagation()" aria-label="Clear output"
+                matTooltip="Clear output">
+          <mat-icon>clear_all</mat-icon>
+        </button>
+        <button mat-icon-button aria-label="Toggle output panel">
+          <mat-icon>{{ consoleExpanded() ? 'expand_more' : 'expand_less' }}</mat-icon>
+        </button>
+      </div>
+      @if (consoleExpanded()) {
+        <div class="console-body" #consoleBody (scroll)="onConsoleScroll()">
+          @if (consoleLines().length === 0) {
+            <p class="console-empty">Waiting for output…</p>
+          }
+          @for (entry of consoleLines(); track $index) {
+            <div class="console-line" [class.console-stderr]="entry.stream === 'stderr'">{{ entry.line }}</div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

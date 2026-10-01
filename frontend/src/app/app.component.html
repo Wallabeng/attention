@@ -1,0 +1,30 @@
+<mat-toolbar color="primary">
+  <mat-icon>inbox</mat-icon>
+  <span class="toolbar-title">Attention</span>
+  <button mat-button (click)="activeView.set('inbox')" [class.active-view]="activeView() === 'inbox'" [attr.aria-pressed]="activeView() === 'inbox'">Inbox</button>
+  <button mat-button (click)="activeView.set('monitoring')" [class.active-view]="activeView() === 'monitoring'" [attr.aria-pressed]="activeView() === 'monitoring'">Monitoring</button>
+  <button mat-button (click)="activeView.set('docker')" [class.active-view]="activeView() === 'docker'" [attr.aria-pressed]="activeView() === 'docker'">Docker</button>
+  <span class="spacer"></span>
+  <span class="sync-timer">{{ items.nextSyncIn() }}s</span>
+  <button mat-icon-button (click)="toggleSidebar()" aria-label="Toggle sources sidebar"
+          matBadge="●" matBadgeColor="warn" matBadgeSize="small"
+          [matBadgeHidden]="!sources.anyMuted() || sidebarOpen()">
+    <mat-icon>tune</mat-icon>
+  </button>
+  <button mat-icon-button (click)="sync()" [disabled]="items.syncing()" aria-label="Sync">
+    <mat-icon [class.spinning]="items.syncing()">sync</mat-icon>
+  </button>
+  <button mat-icon-button (click)="openSettings()" aria-label="Settings">
+    <mat-icon>settings</mat-icon>
+  </button>
+</mat-toolbar>
+<div class="main-layout">
+  <div [hidden]="activeView() !== 'inbox'" class="inbox-view">
+    @if (sidebarOpen()) {
+      <app-sources-sidebar/>
+    }
+    <app-inbox/>
+  </div>
+  <app-monitoring [hidden]="activeView() !== 'monitoring'"/>
+  <app-docker [hidden]="activeView() !== 'docker'"/>
+</div>

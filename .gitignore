@@ -1,0 +1,9 @@
+.DS_STORE
+/out
+**/vendor
+.phpunit.result.cache
+**/node_modules
+**/dist
+**/.angular
+**/docs/superpowers/
+.idea/

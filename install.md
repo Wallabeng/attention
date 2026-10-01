@@ -1,0 +1,5 @@
+- curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+- npm ci
+- in frontend/:
+  - npm ci
+- npm run dev

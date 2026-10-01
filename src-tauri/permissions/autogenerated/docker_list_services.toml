@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-docker-list-services"
+description = "Enables the docker_list_services command without any pre-configured scope."
+commands.allow = ["docker_list_services"]
+
+[[permission]]
+identifier = "deny-docker-list-services"
+description = "Denies the docker_list_services command without any pre-configured scope."
+commands.deny = ["docker_list_services"]

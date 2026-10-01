@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-docker-service-logs-start"
+description = "Enables the docker_service_logs_start command without any pre-configured scope."
+commands.allow = ["docker_service_logs_start"]
+
+[[permission]]
+identifier = "deny-docker-service-logs-start"
+description = "Denies the docker_service_logs_start command without any pre-configured scope."
+commands.deny = ["docker_service_logs_start"]

@@ -1,0 +1,173 @@
+.monitoring-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.grid-viewport {
+  flex: 1;
+}
+
+// The header table never scrolls — see the template comment above it for why it's split out from
+// the body table instead of being a `sticky: true` header row inside the viewport.
+.grid-header-table {
+  flex-shrink: 0;
+}
+
+.monitoring-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+
+  .spacer {
+    flex: 1;
+  }
+
+  .stage-select, .grid-select {
+    width: 200px;
+  }
+
+  .filter-field {
+    width: 220px;
+  }
+}
+
+.progress-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 16px 8px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.status-line {
+  padding: 0 16px 8px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.tenant-group-filter-row {
+  padding: 0 16px 8px;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.error-banner {
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  background: #fdecea;
+  color: #611a15;
+  border-radius: 4px;
+}
+
+.warning-banner {
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  background: #fff8e1;
+  color: #664d03;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.failed-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.login-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 16px;
+}
+
+.loading-placeholder {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.grid-table {
+  width: 100%;
+  // border-box so the header table's `padding-right` (see `MonitoringComponent.scrollbarWidth`,
+  // bound in the template) shrinks its column area to match the body table's, rather than adding
+  // extra width beyond the shared 100%-wide container.
+  box-sizing: border-box;
+  // Fixed (rather than content-based) column widths — required so the header table's columns
+  // and the body table's columns line up: they're two separate `<table>` elements (see the
+  // template comment) that only agree on width because both divide the same 100%-wide container
+  // evenly across the same `columns()` list, which `table-layout: fixed` guarantees regardless of
+  // either table's actual cell content.
+  table-layout: fixed;
+
+  .mat-mdc-header-row,
+  .mat-mdc-row {
+    height: 48px;
+  }
+
+  // Fixed-height virtualized rows (48px above) can't grow to fit long content, so cell text is
+  // clipped with an ellipsis; the full value is available on hover via matTooltip in the template.
+  // Header cells: mat-sort-header wraps content in .mat-sort-header-container (a flex row with the
+  // label + sort arrow), so ellipsis must target the label span inside it rather than the <th>.
+  .grid-cell.mat-mdc-cell {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .grid-cell.mat-mdc-header-cell .mat-sort-header-content {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    min-width: 0;
+  }
+
+  .tenant-group-link {
+    color: #1976d2;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+// The column picker uses `[disabled]="true"` on each mat-checkbox so it can't fire its own change
+// event alongside the menu-item click handler (which is the sole toggle source), but the disabled
+// styling greys the whole control out and hides whether the box is checked — which defeats the
+// point of showing it. Restore full opacity and give the tick / border the same live look they'd
+// have if the checkbox were interactive.
+.column-toggle-checkbox.mat-mdc-checkbox {
+  opacity: 1;
+
+  .mdc-checkbox__native-control:disabled ~ .mdc-checkbox__background {
+    opacity: 1;
+    border-color: rgba(0, 0, 0, 0.54);
+  }
+
+  .mdc-checkbox__native-control:disabled:checked ~ .mdc-checkbox__background {
+    background-color: #1976d2;
+    border-color: #1976d2;
+  }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,143 @@
+<div class="inbox-container">
+  <div class="add-row">
+    <mat-form-field appearance="outline" class="add-field">
+      <mat-label>Add item…</mat-label>
+      <input matInput [(ngModel)]="newTitle" (keyup.enter)="addItem()"/>
+    </mat-form-field>
+    <button mat-fab extended color="primary" (click)="addItem()">
+      <mat-icon>add</mat-icon>
+      Add
+    </button>
+  </div>
+
+  <div class="filter-row">
+    <mat-chip-listbox>
+      <mat-chip-option [selected]="filter() === 'open'" (click)="setFilter('open')">
+        Open ({{ open().length }})
+      </mat-chip-option>
+      <mat-chip-option [selected]="filter() === 'snoozed'" (click)="setFilter('snoozed')">
+        Snoozed ({{ snoozed().length }})
+      </mat-chip-option>
+      <mat-chip-option [selected]="filter() === 'done'" (click)="setFilter('done')">
+        Done ({{ done().length }})
+      </mat-chip-option>
+      <mat-chip-option [selected]="filter() === 'all'" (click)="setFilter('all')">
+        All
+      </mat-chip-option>
+    </mat-chip-listbox>
+    <mat-form-field appearance="outline" class="sort-field" subscriptSizing="dynamic">
+      <mat-label>Sort</mat-label>
+      <mat-select [value]="sort()" (selectionChange)="sort.set($event.value)">
+        <mat-option value="created_desc">Newest first</mat-option>
+        <mat-option value="created_asc">Oldest first</mat-option>
+        <mat-option value="source">By source</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (snoozeRules.rules().length > 0) {
+    <div class="rule-filter-row">
+      <mat-chip-listbox>
+        @for (rule of snoozeRules.rules(); track rule.id) {
+          <mat-chip-option [selected]="ruleFilter() === rule.id" (click)="toggleRuleFilter(rule.id)"
+                           [class.expired-rule]="isRuleExpired(rule)"
+                           [matTooltip]="rule.patterns.join(', ')">
+            {{ rule.title }} ({{ ruleMatchCount(rule) }})
+            @if (isRuleExpired(rule)) {
+              <span class="expired-tag">expired</span>
+            }
+            <button matChipTrailingIcon (click)="$event.stopPropagation(); openEditRuleDialog(rule)"
+                    class="snooze-edit-button" [attr.aria-label]="isRuleExpired(rule) ? 'Reactivate rule' : 'Edit rule'">
+              <mat-icon>{{ isRuleExpired(rule) ? 'restore' : 'edit' }}</mat-icon>
+            </button>
+            <button matChipRemove (click)="$event.stopPropagation(); removeRule(rule)" aria-label="Remove rule">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </mat-chip-option>
+        }
+      </mat-chip-listbox>
+    </div>
+  }
+
+  @if (visible().length === 0) {
+    <div class="empty-state">
+      <mat-icon class="empty-icon">check_circle_outline</mat-icon>
+      <p>Nothing here — you're all caught up.</p>
+    </div>
+  } @else {
+    <mat-list class="item-list">
+      @for (item of visible(); track item.id) {
+        <mat-list-item class="item-row" [class.low-attention]="needsLessAttention(item)" [class.high-attention]="needsMoreAttention(item)">
+          <span matListItemTitle [class.done]="item.state === 'done'" [class.overdue]="isOverdue(item.due_date ?? '')" [class.has-url]="item.url" (click)="openUrl(item)"><span class="created-at" [matTooltip]="formatAbsoluteDateTime(item.created_at)">{{ formatRelativeTime(item.created_at) }}</span>@if (isUpdated(item)) {
+              <span class="updated-at" [matTooltip]="formatAbsoluteDateTime(item.updated_at)">updated {{ formatRelativeTime(item.updated_at) }}</span>
+            }{{ item.title }}
+            @if (item.due_date) {
+              ({{ item.state === 'snoozed' ? 'Snoozed until' : 'Due' }}: {{ formatDate(item.due_date) }})
+            }
+            </span>
+          @if (item.properties && objectKeys(item.properties).length > 0) {
+            <span matListItemLine class="properties-line">
+              {{ item.notes }}
+              @for (key of propertyKeysForDisplay(item); track key) {
+                <span class="property-badge">
+                  <span class="property-key">{{ key }}:</span>
+                  <span class="property-value">{{ item.properties![key] }}</span>
+                </span>
+              }
+            </span>
+          }
+          <div matListItemMeta class="item-actions">
+            <div class="actions-row default-actions">
+              <span class="source-chip">{{ item.source }}</span>
+              @if (actionsFor(item).length > 0) {
+                @for (action of actionsFor(item); track action.id) {
+                  <button mat-icon-button
+                          [matTooltip]="action.label"
+                          [disabled]="isActionRunning(item, action)"
+                          [attr.aria-label]="action.label"
+                          (click)="runAction(item, action)">
+                    <mat-icon>{{ action.icon }}</mat-icon>
+                  </button>
+                }
+              }
+              @if (item.state === 'open') {
+                <button mat-icon-button
+                        [matMenuTriggerFor]="snoozeMenu"
+                        (click)="pendingSnoozeItem.set(item)"
+                        aria-label="Snooze">
+                  <mat-icon>snooze</mat-icon>
+                </button>
+              }
+              @if (item.state === 'snoozed') {
+                <button mat-icon-button (click)="unsnooze(item)" aria-label="Un-snooze">
+                  <mat-icon>alarm_off</mat-icon>
+                </button>
+              }
+              <button mat-icon-button (click)="markDone(item)" aria-label="Done">
+                @if (item.state === 'done') {
+                  <mat-icon>restart_alt</mat-icon>
+                } @else {
+                  <mat-icon>check</mat-icon>
+                }
+              </button>
+              <button mat-icon-button (click)="remove(item)" aria-label="Delete">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          </div>
+        </mat-list-item>
+      }
+    </mat-list>
+  }
+</div>
+
+<mat-menu #snoozeMenu>
+  <button mat-menu-item (click)="snoozeFromMenu(1)">Tomorrow</button>
+  <button mat-menu-item (click)="snoozeFromMenu(3)">In 3 days</button>
+  <button mat-menu-item (click)="snoozeFromMenu(7)">Next week</button>
+  <mat-divider></mat-divider>
+  <button mat-menu-item (click)="openSnoozeGroupDialog()">
+    <mat-icon>content_copy</mat-icon>
+    <span>Snooze items like this&hellip;</span>
+  </button>
+</mat-menu>

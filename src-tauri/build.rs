@@ -1,0 +1,31 @@
+fn main() {
+  tauri_build::try_build(
+    tauri_build::Attributes::new().app_manifest(
+      tauri_build::AppManifest::new().commands(&[
+        "get_items",
+        "create_item",
+        "update_item",
+        "delete_item",
+        "get_config",
+        "set_config",
+        "set_badge_count",
+        "http_request",
+        "notify",
+        "open_url",
+        "run_in_terminal",
+        "open_stage_login",
+        "confirm_stage_login",
+        "fetch_grid_data",
+        "report_grid_result",
+        "cancel_grid_fetch",
+        "docker_list_services",
+        "docker_service_status",
+        "docker_service_action",
+        "docker_pull_start",
+        "docker_service_logs_start",
+        "docker_service_logs_stop",
+      ]),
+    ),
+  )
+  .expect("failed to run tauri-build");
+}

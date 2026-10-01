@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fetch-grid-data"
+description = "Enables the fetch_grid_data command without any pre-configured scope."
+commands.allow = ["fetch_grid_data"]
+
+[[permission]]
+identifier = "deny-fetch-grid-data"
+description = "Denies the fetch_grid_data command without any pre-configured scope."
+commands.deny = ["fetch_grid_data"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-docker-service-action"
+description = "Enables the docker_service_action command without any pre-configured scope."
+commands.allow = ["docker_service_action"]
+
+[[permission]]
+identifier = "deny-docker-service-action"
+description = "Denies the docker_service_action command without any pre-configured scope."
+commands.deny = ["docker_service_action"]

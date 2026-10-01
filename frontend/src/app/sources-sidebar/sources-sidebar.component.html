@@ -1,0 +1,21 @@
+<div class="sidebar-header">Sources</div>
+@for (source of sources.allSources; track source) {
+  <div class="source-row" [class.muted]="sources.isMuted(source)">
+    <mat-slide-toggle
+      color="primary"
+      [checked]="!sources.isMuted(source)"
+      (change)="sources.toggleMute(source)">
+    </mat-slide-toggle>
+    <span class="source-name">{{ sources.displayName(source) }}</span>
+    <span class="item-count">{{ openCount(source) }}</span>
+    @if (syncResult(source); as result) {
+      <mat-icon
+        class="sync-icon"
+        [class.success]="result.success"
+        [class.failure]="!result.success"
+        [matTooltip]="result.error ?? ''">
+        {{ result.success ? 'check_circle' : 'error' }}
+      </mat-icon>
+    }
+  </div>
+}

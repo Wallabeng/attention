@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-docker-service-logs-stop"
+description = "Enables the docker_service_logs_stop command without any pre-configured scope."
+commands.allow = ["docker_service_logs_stop"]
+
+[[permission]]
+identifier = "deny-docker-service-logs-stop"
+description = "Denies the docker_service_logs_stop command without any pre-configured scope."
+commands.deny = ["docker_service_logs_stop"]

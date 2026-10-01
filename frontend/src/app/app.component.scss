@@ -1,0 +1,63 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+mat-toolbar {
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.active-view {
+  text-decoration: underline;
+}
+
+.main-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+// `:not([hidden])` (rather than a bare selector) is deliberate: Angular's view encapsulation
+// appends a content attribute selector to every rule in this stylesheet, which raises these
+// rules' specificity above the browser's built-in `[hidden] { display: none }` UA rule. A plain
+// `display: flex`/`block` here would silently win over `[hidden]` and keep the panel visible.
+// Scoping to `:not([hidden])` means the rule simply doesn't match once `[hidden]` is present.
+.inbox-view:not([hidden]) {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+app-inbox {
+  flex: 1;
+  overflow: hidden;
+}
+
+app-monitoring:not([hidden]),
+app-docker:not([hidden]) {
+  display: block;
+  flex: 1;
+  overflow: hidden;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+.sync-timer {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-right: 4px;
+}

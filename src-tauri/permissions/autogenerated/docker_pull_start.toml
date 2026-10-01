@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-docker-pull-start"
+description = "Enables the docker_pull_start command without any pre-configured scope."
+commands.allow = ["docker_pull_start"]
+
+[[permission]]
+identifier = "deny-docker-pull-start"
+description = "Denies the docker_pull_start command without any pre-configured scope."
+commands.deny = ["docker_pull_start"]

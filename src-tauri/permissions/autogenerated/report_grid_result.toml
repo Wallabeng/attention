@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-report-grid-result"
+description = "Enables the report_grid_result command without any pre-configured scope."
+commands.allow = ["report_grid_result"]
+
+[[permission]]
+identifier = "deny-report-grid-result"
+description = "Denies the report_grid_result command without any pre-configured scope."
+commands.deny = ["report_grid_result"]

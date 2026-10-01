@@ -1,0 +1,36 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "enables the default permissions",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "notification:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    "allow-get-items",
+    "allow-create-item",
+    "allow-update-item",
+    "allow-delete-item",
+    "allow-get-config",
+    "allow-set-config",
+    "allow-set-badge-count",
+    "allow-http-request",
+    "allow-notify",
+    "allow-open-url",
+    "allow-run-in-terminal",
+    "allow-open-stage-login",
+    "allow-confirm-stage-login",
+    "allow-fetch-grid-data",
+    "allow-cancel-grid-fetch",
+    "allow-docker-list-services",
+    "allow-docker-service-status",
+    "allow-docker-service-action",
+    "allow-docker-pull-start",
+    "allow-docker-service-logs-start",
+    "allow-docker-service-logs-stop"
+  ]
+}
