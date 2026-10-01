@@ -46,7 +46,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "REPLACE_WITH_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYzRjI2NEI2QkM0NkEyQzkKUldUSm9rYTh0bVR5ODAydnhSYmhTa050Zmxhd3NTTDFmTk11QW1IWFVTZzZTYS8wWkJyOXQzK3IK",
       "endpoints": [
         "https://github.com/Wallabeng/attention/releases/latest/download/latest.json"
       ]
