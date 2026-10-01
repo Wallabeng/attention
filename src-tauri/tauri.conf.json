@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Attention",
-  "identifier": "com.ring-dev.attention",
+  "identifier": "at.ring-dev.attention",
   "build": {
     "frontendDist": "../frontend/dist/attention-app/browser",
     "devUrl": "http://localhost:4200",

@@ -35,5 +35,5 @@ The app is only ad-hoc signed (no Apple Developer account), so Gatekeeper blocks
 2. Run once: `xattr -dr com.apple.quarantine /Applications/Attention.app`
    (or right-click → Open, then *System Settings → Privacy & Security → Open Anyway*).
 
-Later updates install in-app and don't need this step. Keep `identifier` (`com.ring-dev.attention`)
+Later updates install in-app and don't need this step. Keep `identifier` (`at.ring-dev.attention`)
 unchanged forever so keychain entries and autostart keep working.
