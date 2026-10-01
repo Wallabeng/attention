@@ -1,7 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Attention",
-  "version": "0.1.0",
   "identifier": "com.ring-dev.attention",
   "build": {
     "frontendDist": "../frontend/dist/attention-app/browser",
@@ -38,6 +37,19 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
+    },
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_PUBLIC_KEY",
+      "endpoints": [
+        "https://github.com/Wallabeng/attention/releases/latest/download/latest.json"
+      ]
     }
   }
 }

@@ -1,10 +1,10 @@
 [package]
 name = "app"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Unified attention dashboard"
+authors = ["Wallabeng"]
 license = ""
-repository = ""
+repository = "https://github.com/Wallabeng/attention"
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -25,6 +25,8 @@ tauri = { version = "2.11.2", features = ["tray-icon", "image-png"] }
 tauri-plugin-log = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-dialog = "2"
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["time", "sync", "process", "io-util", "macros"] }
 open = "3"

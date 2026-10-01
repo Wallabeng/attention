@@ -1,4 +1,5 @@
 mod commands;
+mod updater;
 
 use commands::{
     cancel_grid_fetch, confirm_stage_login, create_item, delete_item, docker_list_services,
@@ -31,6 +32,8 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             app.manage(MonitoringState::default());
             app.manage(DockerLogsState::default());
@@ -45,7 +48,14 @@ pub fn run() {
 
             let show_i = MenuItem::with_id(app, "show", "Show Attention", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+            let update_i = MenuItem::with_id(
+                app,
+                "check_updates",
+                "Check for Updates…",
+                true,
+                None::<&str>,
+            )?;
+            let menu = Menu::with_items(app, &[&show_i, &update_i, &quit_i])?;
 
             TrayIconBuilder::with_id(TRAY_ID)
                 .icon(app.default_window_icon().unwrap().clone())
@@ -54,6 +64,9 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
+                    "check_updates" => {
+                        tauri::async_runtime::spawn(updater::check_for_updates(app.clone(), true));
+                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })
@@ -75,6 +88,14 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            // Silent update check on startup (release builds only).
+            if !cfg!(debug_assertions) {
+                tauri::async_runtime::spawn(updater::check_for_updates(
+                    app.handle().clone(),
+                    false,
+                ));
+            }
 
             Ok(())
         })

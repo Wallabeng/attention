@@ -31,6 +31,9 @@
     "allow-docker-service-action",
     "allow-docker-pull-start",
     "allow-docker-service-logs-start",
-    "allow-docker-service-logs-stop"
+    "allow-docker-service-logs-stop",
+    "updater:default",
+    "dialog:allow-message",
+    "dialog:allow-ask"
   ]
 }
