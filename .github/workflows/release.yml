@@ -1,8 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [created]
 
 permissions:
   contents: write
@@ -24,7 +24,9 @@ jobs:
       - name: Verify tag matches Cargo.toml version
         run: |
           v=$(grep -m1 '^version' src-tauri/Cargo.toml | sed 's/.*"\(.*\)"/\1/')
-          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "Tag ${GITHUB_REF_NAME} != Cargo.toml v$v"; exit 1; }
+          [ "v$v" = "$TAG" ] || { echo "Release tag $TAG != Cargo.toml v$v"; exit 1; }
+        env:
+          TAG: ${{ github.event.release.tag_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -52,9 +54,5 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Attention ${{ github.ref_name }}
-          releaseBody: See the assets below to download. macOS first install - see README.
-          releaseDraft: false
-          prerelease: false
+          releaseId: ${{ github.event.release.id }}
           args: --target ${{ matrix.target }}
