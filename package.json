@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "release": "node scripts/release.mjs",
     "frontend": "cd frontend && npm run start"
   },
   "devDependencies": {

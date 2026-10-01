@@ -20,10 +20,15 @@ verifies the update signature, installs it and restarts.
 
 ## Cutting a release
 
-1. Bump `version` in `src-tauri/Cargo.toml` (single source of truth; also bump `package.json` for tidiness).
-2. Commit, then `git tag v0.2.0 && git push origin main v0.2.0`.
-3. The workflow publishes a release with `.dmg` installers (Apple Silicon + Intel), the update
-   bundles and `latest.json`.
+```
+npm run release -- patch          # or minor | major | 0.2.0
+git push origin <branch> v0.2.0   # or add --push: npm run release -- patch --push
+```
+
+The script bumps `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` and
+`src-tauri/Cargo.lock`, commits "Release vX.Y.Z" and tags it (the working tree must be clean).
+Pushing the `v*` tag makes the workflow publish a release with `.dmg` installers
+(Apple Silicon + Intel), the update bundles and `latest.json`.
 
 Local `tauri build` now needs `TAURI_SIGNING_PRIVATE_KEY` set (updater artifacts are signed).
 
