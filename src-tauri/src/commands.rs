@@ -873,9 +873,75 @@ fn compose_command(compose_path: &str, args: &[&str]) -> Result<tokio::process::
     if compose_path.trim().is_empty() {
         return Err("no docker-compose.yaml configured — set its path in Settings".to_string());
     }
-    let mut cmd = tokio::process::Command::new("docker");
+    let (docker, path_env) = docker_runtime();
+    let mut cmd = tokio::process::Command::new(docker);
+    if let Some(path_env) = path_env {
+        // Also needed by docker itself: it execs `docker-credential-*` helpers via `PATH`.
+        cmd.env("PATH", path_env);
+    }
     cmd.args(["compose", "-f", compose_path]).args(args);
     Ok(cmd)
+}
+
+/// Directories where Docker CLIs commonly live but which a GUI-launched (Dock/Finder/desktop
+/// entry/AppImage) process doesn't have on its `PATH` — unlike a dev run from a terminal, which
+/// inherits the shell's. Without these, spawning plain `docker` fails with ENOENT.
+fn docker_extra_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from);
+    if cfg!(windows) {
+        for var in ["ProgramFiles", "ProgramW6432"] {
+            if let Some(pf) = std::env::var_os(var) {
+                dirs.push(PathBuf::from(pf).join("Docker").join("Docker").join("resources").join("bin"));
+            }
+        }
+        dirs.push(PathBuf::from(r"C:\Program Files\Docker\Docker\resources\bin"));
+        if let Some(home) = &home {
+            dirs.push(home.join(".rd").join("bin")); // Rancher Desktop
+        }
+    } else {
+        for d in [
+            "/usr/local/bin",
+            "/opt/homebrew/bin",
+            "/usr/bin",
+            "/bin",
+            "/snap/bin",
+            "/Applications/Docker.app/Contents/Resources/bin",
+            "/Applications/OrbStack.app/Contents/MacOS/xbin",
+        ] {
+            dirs.push(PathBuf::from(d));
+        }
+        if let Some(home) = &home {
+            for d in [".docker/bin", ".rd/bin", ".orbstack/bin", ".local/bin"] {
+                dirs.push(home.join(d));
+            }
+        }
+    }
+    dirs
+}
+
+/// Resolves the `docker` executable and an augmented `PATH` (inherited entries first, then the
+/// well-known Docker locations from `docker_extra_dirs`). Computed once. Falls back to the bare
+/// name `"docker"` if nothing is found, so the usual "failed to run docker" error still surfaces.
+fn docker_runtime() -> (PathBuf, Option<std::ffi::OsString>) {
+    static RUNTIME: std::sync::OnceLock<(PathBuf, Option<std::ffi::OsString>)> =
+        std::sync::OnceLock::new();
+    RUNTIME
+        .get_or_init(|| {
+            let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
+                .map(|p| std::env::split_paths(&p).collect())
+                .unwrap_or_default();
+            for d in docker_extra_dirs() {
+                if !dirs.contains(&d) {
+                    dirs.push(d);
+                }
+            }
+            let exe = if cfg!(windows) { "docker.exe" } else { "docker" };
+            let found = dirs.iter().map(|d| d.join(exe)).find(|p| p.is_file());
+            let path_env = std::env::join_paths(&dirs).ok();
+            (found.unwrap_or_else(|| PathBuf::from("docker")), path_env)
+        })
+        .clone()
 }
 
 /// Runs `docker compose -f <compose_path> <args>` to completion and returns its full stdout,
