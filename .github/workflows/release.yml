@@ -54,7 +54,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Attention ${{ github.ref_name }}
-          releaseBody: See the assets below to download. macOS first install - see README.
+          releaseBody: See the assets below. macOS first install: see the [README](https://github.com/Wallabeng/attention#install-macos).
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
