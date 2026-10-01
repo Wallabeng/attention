@@ -1,6 +1,6 @@
 # Releasing & updates (macOS)
 
-Releases are built by `.github/workflows/release.yml` when a GitHub Release is created (the workflow attaches the build artifacts to that release). The app
+Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. The app
 checks `releases/latest/download/latest.json` on startup (and via tray → *Check for Updates…*),
 verifies the update signature, installs it and restarts.
 
@@ -21,12 +21,9 @@ verifies the update signature, installs it and restarts.
 ## Cutting a release
 
 1. Bump `version` in `src-tauri/Cargo.toml` (single source of truth; also bump `package.json` for tidiness).
-2. Commit and push to `main`.
-3. On GitHub, create a new Release with tag `v0.2.0` (matching `Cargo.toml`), targeting `main`.
-   Publish it directly — draft releases don't trigger the workflow, and pre-releases are not
-   served as "latest" to the updater.
-4. The workflow attaches `.dmg` installers (Apple Silicon + Intel), the update bundles and
-   `latest.json` to that release.
+2. Commit, then `git tag v0.2.0 && git push origin main v0.2.0`.
+3. The workflow publishes a release with `.dmg` installers (Apple Silicon + Intel), the update
+   bundles and `latest.json`.
 
 Local `tauri build` now needs `TAURI_SIGNING_PRIVATE_KEY` set (updater artifacts are signed).
 
