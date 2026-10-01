@@ -1,6 +1,6 @@
 {
   "name": "attention",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Unified attention dashboard — desktop app",
   "scripts": {
     "tauri": "tauri",
