@@ -1,0 +1,37 @@
+name: Cache warm
+
+# Tag-triggered release runs can only restore caches created on the default
+# branch, so build dependencies here and save them under the release shared-keys.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src-tauri/Cargo.toml'
+      - 'src-tauri/Cargo.lock'
+      - '.github/workflows/cache-warm.yml'
+  workflow_dispatch:
+
+jobs:
+  warm:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: release-${{ matrix.target }}
+
+      # tauri-build requires frontendDist to exist; contents don't matter here.
+      - run: mkdir -p frontend/dist/attention-app/browser && touch frontend/dist/attention-app/browser/index.html
+
+      - run: cargo build --release --target ${{ matrix.target }} --features tauri/custom-protocol
+        working-directory: src-tauri

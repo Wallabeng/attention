@@ -15,7 +15,8 @@ jobs:
         include:
           - runner: macos-latest   # Apple Silicon
             target: aarch64-apple-darwin
-          - runner: macos-15-intel # Intel (macos-13 retired)
+          # Intel build is cross-compiled on the (much faster) Apple Silicon runner
+          - runner: macos-latest
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.runner }}
     steps:
@@ -41,6 +42,10 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          # Same key as .github/workflows/cache-warm.yml so tag builds can reuse
+          # the cache saved from main (tag refs can't read each other's caches).
+          shared-key: release-${{ matrix.target }}
+          save-if: false
 
       - run: npm ci
       - run: npm ci
