@@ -63,7 +63,7 @@ console.log(`Created commit and tag ${tag} (was ${prev}).`);
 
 if (push) {
   const branch = sh("git branch --show-current");
-  sh(`git push origin ${branch} ${tag}`);
+  sh(`git push --atomic origin ${branch} ${tag}`);
   console.log(`Pushed ${branch} and ${tag}.`);
 } else {
   console.log(`Publish with: git push origin ${sh("git branch --show-current")} ${tag}`);

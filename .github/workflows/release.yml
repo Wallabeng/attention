@@ -3,12 +3,72 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          node-version: 22
+
+      - name: Bump version and push release commit and tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BUMP: ${{ inputs.bump }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          [ "$REF_TYPE" = branch ] || { echo "Manual releases must run on a branch"; exit 1; }
+          case "$BUMP" in
+            patch|minor|major) ;;
+            *) echo "Invalid version bump"; exit 1 ;;
+          esac
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm run release -- "$BUMP" --push
+
+      - name: Resolve release tag
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            tag=$(node -p "'v' + require('./package.json').version")
+          else
+            tag="$REF_NAME"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   release:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -21,11 +81,15 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Verify tag matches Cargo.toml version
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           v=$(grep -m1 '^version' src-tauri/Cargo.toml | sed 's/.*"\(.*\)"/\1/')
-          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "Tag ${GITHUB_REF_NAME} != Cargo.toml v$v"; exit 1; }
+          [ "v$v" = "$RELEASE_TAG" ] || { echo "Tag $RELEASE_TAG != Cargo.toml v$v"; exit 1; }
 
       - uses: actions/setup-node@v4
         with:
@@ -54,8 +118,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Attention ${{ github.ref_name }}
+          tagName: ${{ needs.prepare.outputs.tag }}
+          releaseName: Attention ${{ needs.prepare.outputs.tag }}
           releaseBody: 'See the assets below. macOS first install: see the [README](https://github.com/Wallabeng/attention#install-macos).'
           releaseDraft: false
           prerelease: false
