@@ -57,7 +57,7 @@ writeFileSync(
 );
 
 // What's-new log: stamp features that have not been released yet with this version
-const featuresRel = "frontend/src/app/whats-new/features.json";
+const featuresRel = "features.json";
 const features = JSON.parse(readFileSync(file(featuresRel), "utf8"));
 for (const f of features) f.version ??= next;
 writeFileSync(file(featuresRel), JSON.stringify(features, null, 2) + "\n");

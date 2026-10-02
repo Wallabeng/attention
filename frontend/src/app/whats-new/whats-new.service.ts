@@ -2,7 +2,7 @@ import {Injectable} from '@angular/core';
 import {MatDialog} from '@angular/material/dialog';
 import {firstValueFrom} from 'rxjs';
 import {ShellService} from '../shell.service';
-import featureLog from './features.json';
+import featureLog from '../../../../features.json';
 import {Feature, groupByVersion, unseenFeatures} from './whats-new.util';
 import {WhatsNewDialogComponent} from './whats-new-dialog.component';
 
