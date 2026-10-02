@@ -8,6 +8,8 @@ fn main() {
         "delete_item",
         "get_config",
         "set_config",
+        "get_last_seen_feature",
+        "set_last_seen_feature",
         "set_badge_count",
         "http_request",
         "notify",
