@@ -1,6 +1,7 @@
 # Releasing & updates (macOS)
 
-Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. The app
+Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed or the
+workflow is run manually from GitHub. The app
 checks `releases/latest/download/latest.json` on startup (and via tray → *Check for Updates…*),
 verifies the update signature, installs it and restarts.
 
@@ -19,6 +20,23 @@ verifies the update signature, installs it and restarts.
 4. The repository must be public (the updater downloads release assets anonymously).
 
 ## Cutting a release
+
+### From GitHub
+
+1. Open **Actions → Release → Run workflow**.
+2. Select the branch to release and choose a version bump: `patch`, `minor`, or `major`.
+3. Click **Run workflow**.
+
+The workflow runs the release script, pushes the version commit and tag to the selected
+branch, then builds and publishes that tag in the same run. No extra token is needed:
+tags pushed with `GITHUB_TOKEN` do not trigger another workflow run.
+Release runs are serialized to prevent overlapping releases.
+
+The selected branch must allow pushes from `github-actions[bot]`; branch protection
+requiring pull requests may prevent the version commit from being pushed.
+The workflow must be present on the default branch for the **Run workflow** button to appear.
+
+### From the command line
 
 ```
 npm run release -- patch          # or minor | major | 0.2.0
