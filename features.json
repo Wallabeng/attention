@@ -1,13 +1,8 @@
 [
   {
-    "id": "in-app-updates",
-    "title": "Automatic updates",
-    "description": "Attention checks for new versions on startup and installs them in place. You can also trigger a check from the tray menu.",
+    "id": "welcome",
+    "title": "Welcome",
+    "description": "Unified attention dashboard — a desktop app that collects items that need your attention in one inbox, and keeps running in the background for syncs and notifications.",
     "version": "1.0.0"
   },
-  {
-    "id": "whats-new",
-    "title": "What's new",
-    "description": "After an update, Attention now shows the features you haven't seen yet."
-  }
 ]
