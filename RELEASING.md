@@ -31,9 +31,12 @@ The workflow runs the release script, pushes the version commit and tag to the s
 branch, then builds and publishes that tag in the same run. No extra token is needed:
 tags pushed with `GITHUB_TOKEN` do not trigger another workflow run.
 Release runs are serialized to prevent overlapping releases.
+GitHub keeps only one pending run in the concurrency group; a newer request replaces
+an older pending request, so wait for the current release to finish before requesting another.
 
 The selected branch must allow pushes from `github-actions[bot]`; branch protection
 requiring pull requests may prevent the version commit from being pushed.
+The branch and tag are pushed atomically, so a rejected branch push does not leave a release tag behind.
 The workflow must be present on the default branch for the **Run workflow** button to appear.
 
 ### From the command line
