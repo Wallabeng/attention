@@ -1,8 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  # Manual only: caches are scoped to the ref that saves them, and tag refs can't
+  # share caches with each other. Running on a branch keeps them restorable.
   workflow_dispatch:
     inputs:
       bump:
@@ -29,18 +29,15 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name == 'workflow_dispatch'
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
-        if: github.event_name == 'workflow_dispatch'
         with:
           node-version: 22
 
       - name: Bump version and push release commit and tag
-        if: github.event_name == 'workflow_dispatch'
         env:
           BUMP: ${{ inputs.bump }}
           REF_TYPE: ${{ github.ref_type }}
@@ -56,15 +53,8 @@ jobs:
 
       - name: Resolve release tag
         id: tag
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ "$EVENT_NAME" = workflow_dispatch ]; then
-            tag=$(node -p "'v' + require('./package.json').version")
-          else
-            tag="$REF_NAME"
-          fi
+          tag=$(node -p "'v' + require('./package.json').version")
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
   release:
