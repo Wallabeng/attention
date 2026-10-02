@@ -5,6 +5,8 @@ export const CMD = {
   deleteItem: 'delete_item',
   getConfig: 'get_config',
   setConfig: 'set_config',
+  getLastSeenFeature: 'get_last_seen_feature',
+  setLastSeenFeature: 'set_last_seen_feature',
   setBadgeCount: 'set_badge_count',
   httpRequest: 'http_request',
   notify: 'notify',

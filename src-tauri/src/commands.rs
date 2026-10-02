@@ -324,6 +324,13 @@ fn config_path(app: &AppHandle) -> PathBuf {
         .join("config.json")
 }
 
+fn last_seen_feature_path(app: &AppHandle) -> PathBuf {
+    app.path()
+        .app_data_dir()
+        .expect("failed to resolve app data dir")
+        .join("last_seen_feature.json")
+}
+
 fn load(app: &AppHandle) -> Vec<Item> {
     let path = items_path(app);
     if !path.exists() {
@@ -438,6 +445,23 @@ pub fn delete_item(app: AppHandle, id: String) -> Vec<Item> {
     items.retain(|i| i.id != id);
     save(&app, &items);
     items
+}
+
+/// Id of the last "What's new" feature the user has acknowledged, if any.
+#[tauri::command]
+pub fn get_last_seen_feature(app: AppHandle) -> Option<String> {
+    let raw = fs::read_to_string(last_seen_feature_path(&app)).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
+#[tauri::command]
+pub fn set_last_seen_feature(app: AppHandle, id: String) -> Result<(), String> {
+    let path = last_seen_feature_path(&app);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    let json = serde_json::to_string(&id).map_err(|e| e.to_string())?;
+    fs::write(&path, json).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

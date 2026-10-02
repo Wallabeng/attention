@@ -5,6 +5,7 @@ import {SourcesService} from './sources.service';
 import {ShellService} from './shell.service';
 import {MatDialog} from '@angular/material/dialog';
 import {MatSnackBar} from '@angular/material/snack-bar';
+import {WhatsNewService} from './whats-new/whats-new.service';
 
 describe('AppComponent', () => {
   beforeEach(async () => {
@@ -36,6 +37,10 @@ describe('AppComponent', () => {
         {
           provide: MatDialog,
           useValue: {open: () => undefined},
+        },
+        {
+          provide: WhatsNewService,
+          useValue: {showIfNew: () => Promise.resolve()},
         },
         {
           provide: MatSnackBar,
