@@ -40,8 +40,8 @@ export class ShellService {
     return invoke<void>(CMD.setConfig, {config});
   }
 
-  getLastSeenFeature(): Promise<string | null> {
-    return invoke<string | null>(CMD.getLastSeenFeature);
+  async getLastSeenFeature(): Promise<string | null> {
+    return (await invoke<string | null>(CMD.getLastSeenFeature)) ?? null;
   }
 
   setLastSeenFeature(id: string): Promise<void> {

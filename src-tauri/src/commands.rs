@@ -449,9 +449,15 @@ pub fn delete_item(app: AppHandle, id: String) -> Vec<Item> {
 
 /// Id of the last "What's new" feature the user has acknowledged, if any.
 #[tauri::command]
-pub fn get_last_seen_feature(app: AppHandle) -> Option<String> {
-    let raw = fs::read_to_string(last_seen_feature_path(&app)).ok()?;
-    serde_json::from_str(&raw).ok()
+pub fn get_last_seen_feature(app: AppHandle) -> Result<Option<String>, String> {
+    let raw = match fs::read_to_string(last_seen_feature_path(&app)) {
+        Ok(raw) => raw,
+        // No marker yet (fresh install): not an error, the frontend gets `null`.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    // A corrupt marker is treated like a missing one.
+    Ok(serde_json::from_str(&raw).ok())
 }
 
 #[tauri::command]
