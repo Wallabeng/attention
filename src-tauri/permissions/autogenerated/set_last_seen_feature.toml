@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-last-seen-feature"
+description = "Enables the set_last_seen_feature command without any pre-configured scope."
+commands.allow = ["set_last_seen_feature"]
+
+[[permission]]
+identifier = "deny-set-last-seen-feature"
+description = "Denies the set_last_seen_feature command without any pre-configured scope."
+commands.deny = ["set_last_seen_feature"]

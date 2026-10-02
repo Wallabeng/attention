@@ -53,7 +53,7 @@ export class AppComponent implements OnInit {
     await this.items.load();
     this.sources.load();
     this.shell.requestNotificationPermission();
-    await this.whatsNew.showIfNew().catch(() => {});
+    await this.whatsNew.showIfNew().catch(e => console.error('whats-new failed', e));
   }
 
   toggleSidebar(): void {

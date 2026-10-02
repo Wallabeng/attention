@@ -17,6 +17,8 @@
     "allow-delete-item",
     "allow-get-config",
     "allow-set-config",
+    "allow-get-last-seen-feature",
+    "allow-set-last-seen-feature",
     "allow-set-badge-count",
     "allow-http-request",
     "allow-notify",
