@@ -56,7 +56,13 @@ writeFileSync(
   cargoLock.replace(/(name = "app"\nversion = ")[^"]*(")/, `$1${next}$2`),
 );
 
-sh("git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock");
+// What's-new log: stamp features that have not been released yet with this version
+const featuresRel = "frontend/src/app/whats-new/features.json";
+const features = JSON.parse(readFileSync(file(featuresRel), "utf8"));
+for (const f of features) f.version ??= next;
+writeFileSync(file(featuresRel), JSON.stringify(features, null, 2) + "\n");
+
+sh(`git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock ${featuresRel}`);
 sh(`git commit -m "Release ${tag}"`);
 sh(`git tag ${tag}`);
 console.log(`Created commit and tag ${tag} (was ${prev}).`);

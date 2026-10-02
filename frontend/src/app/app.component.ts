@@ -14,6 +14,7 @@ import {ShellService} from './shell.service';
 import {SourcesService} from './sources.service';
 import {SnoozeRulesService} from './snooze-rules.service';
 import {SourcesSidebarComponent} from './sources-sidebar/sources-sidebar.component';
+import {WhatsNewService} from './whats-new/whats-new.service';
 
 @Component({
   selector: 'app-root',
@@ -43,6 +44,7 @@ export class AppComponent implements OnInit {
     private shell: ShellService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
+    private whatsNew: WhatsNewService,
   ) {
   }
 
@@ -51,6 +53,7 @@ export class AppComponent implements OnInit {
     await this.items.load();
     this.sources.load();
     this.shell.requestNotificationPermission();
+    await this.whatsNew.showIfNew().catch(() => {});
   }
 
   toggleSidebar(): void {

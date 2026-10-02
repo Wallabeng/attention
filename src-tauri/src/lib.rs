@@ -4,8 +4,8 @@ mod updater;
 use commands::{
     cancel_grid_fetch, confirm_stage_login, create_item, delete_item, docker_list_services,
     docker_pull_start, docker_service_action, docker_service_logs_start, docker_service_logs_stop,
-    docker_service_status, fetch_grid_data, get_config, get_items, http_request, notify,
-    open_stage_login, open_url, report_grid_result, run_in_terminal, set_badge_count, set_config,
+    docker_service_status, fetch_grid_data, get_config, get_items, get_last_seen_feature, http_request, notify,
+    open_stage_login, open_url, report_grid_result, run_in_terminal, set_badge_count, set_config, set_last_seen_feature,
     update_item, DockerLogsState, MonitoringState, TRAY_ID,
 };
 use tauri::{
@@ -116,6 +116,8 @@ pub fn run() {
             delete_item,
             get_config,
             set_config,
+            get_last_seen_feature,
+            set_last_seen_feature,
             set_badge_count,
             http_request,
             notify,

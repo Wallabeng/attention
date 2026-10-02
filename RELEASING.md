@@ -53,6 +53,15 @@ Pushing the `v*` tag makes the workflow publish a release with `.dmg` installers
 
 Local `tauri build` now needs `TAURI_SIGNING_PRIVATE_KEY` set (updater artifacts are signed).
 
+## What's new popup
+
+User-visible features are listed in `frontend/src/app/whats-new/features.json`, an
+**append-only** log. Add an entry (`id`, `title`, `description`) at the **end** in the PR
+that ships the feature; never reorder or delete entries, because order defines what a user
+has already seen (the app stores the id of the last entry shown, and shows everything after
+it, so skipped releases and fresh installs are covered). Ids must be unique and stable.
+`npm run release` stamps entries without a `version` with the new version, and the popup groups by it.
+
 ## First install for colleagues
 
 The app is only ad-hoc signed (no Apple Developer account), so Gatekeeper blocks the first launch:

@@ -40,6 +40,14 @@ export class ShellService {
     return invoke<void>(CMD.setConfig, {config});
   }
 
+  getLastSeenFeature(): Promise<string | null> {
+    return invoke<string | null>(CMD.getLastSeenFeature);
+  }
+
+  setLastSeenFeature(id: string): Promise<void> {
+    return invoke<void>(CMD.setLastSeenFeature, {id});
+  }
+
   setBadgeCount(count: number): void {
     invoke(CMD.setBadgeCount, {count}).catch(() => {});
   }
