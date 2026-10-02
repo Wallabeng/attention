@@ -55,7 +55,7 @@ Local `tauri build` now needs `TAURI_SIGNING_PRIVATE_KEY` set (updater artifacts
 
 ## What's new popup
 
-User-visible features are listed in `frontend/src/app/whats-new/features.json`, an
+User-visible features are listed in `features.json`, an
 **append-only** log. Add an entry (`id`, `title`, `description`) at the **end** in the PR
 that ships the feature; never reorder or delete entries, because order defines what a user
 has already seen (the app stores the id of the last entry shown, and shows everything after
