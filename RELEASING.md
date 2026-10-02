@@ -1,7 +1,7 @@
 # Releasing & updates (macOS)
 
-Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed or the
-workflow is run manually from GitHub. The app
+Releases are built by `.github/workflows/release.yml`, which is run manually from GitHub
+(pushing a `v*` tag does not trigger it). The app
 checks `releases/latest/download/latest.json` on startup (and via tray → *Check for Updates…*),
 verifies the update signature, installs it and restarts.
 
@@ -39,17 +39,20 @@ requiring pull requests may prevent the version commit from being pushed.
 The branch and tag are pushed atomically, so a rejected branch push does not leave a release tag behind.
 The workflow must be present on the default branch for the **Run workflow** button to appear.
 
-### From the command line
+Releases run on a branch (not a tag) on purpose: GitHub Actions caches are scoped to the ref
+that saved them, and tag refs cannot restore each other's caches. Running on `main` lets the
+Rust and npm caches be reused by every release after the first.
+
+### Locally
 
 ```
 npm run release -- patch          # or minor | major | 0.2.0
-git push origin <branch> v0.2.0   # or add --push: npm run release -- patch --push
 ```
 
 The script bumps `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` and
 `src-tauri/Cargo.lock`, commits "Release vX.Y.Z" and tags it (the working tree must be clean).
-Pushing the `v*` tag makes the workflow publish a release with `.dmg` installers
-(Apple Silicon + Intel), the update bundles and `latest.json`.
+The workflow runs this same script with `--push`, then builds and publishes a release with
+`.dmg` installers (Apple Silicon + Intel), the update bundles and `latest.json`.
 
 Local `tauri build` now needs `TAURI_SIGNING_PRIVATE_KEY` set (updater artifacts are signed).
 

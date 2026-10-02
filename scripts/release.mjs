@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Usage: npm run release -- <patch|minor|major|x.y.z> [--push]
 // Bumps the version everywhere, commits, and creates the vX.Y.Z tag.
-// With --push, also pushes the current branch and the tag (which triggers the release workflow).
+// With --push, also pushes the current branch and the tag (used by the release workflow).
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
