@@ -8,6 +8,7 @@
   {
     "id": "gitlab-reviewer-mrs",
     "title": "GitLab review requests",
-    "description": "GitLab sync now also shows open merge requests where you are a reviewer, even without a matching label."
+    "description": "GitLab sync now also shows open merge requests where you are a reviewer, even without a matching label.",
+    "version": "1.1.0"
   }
 ]
