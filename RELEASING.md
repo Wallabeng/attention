@@ -1,7 +1,6 @@
 # Releasing & updates (macOS)
 
-Releases are built by `.github/workflows/release.yml`, which is run manually from GitHub
-(pushing a `v*` tag does not trigger it). The app
+Releases are built by `.github/workflows/release.yml`, which is run manually from GitHub. The app
 checks `releases/latest/download/latest.json` on startup (and via tray → *Check for Updates…*),
 verifies the update signature, installs it and restarts.
 
@@ -43,19 +42,6 @@ Releases run on a branch (not a tag) on purpose: GitHub Actions caches are scope
 that saved them, and tag refs cannot restore each other's caches. Running on `main` lets the
 Rust and npm caches be reused by every release after the first.
 
-### Locally
-
-```
-npm run release -- patch          # or minor | major | 0.2.0
-```
-
-The script bumps `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` and
-`src-tauri/Cargo.lock`, commits "Release vX.Y.Z" and tags it (the working tree must be clean).
-The workflow runs this same script with `--push`, then builds and publishes a release with
-`.dmg` installers (Apple Silicon + Intel), the update bundles and `latest.json`.
-
-Local `tauri build` now needs `TAURI_SIGNING_PRIVATE_KEY` set (updater artifacts are signed).
-
 ## What's new popup
 
 User-visible features are listed in `features.json`, an
@@ -65,7 +51,7 @@ has already seen (the app stores the id of the last entry shown, and shows every
 it, so skipped releases and fresh installs are covered). Ids must be unique and stable.
 `npm run release` stamps entries without a `version` with the new version, and the popup groups by it.
 
-## First install for colleagues
+## First install
 
 The app is only ad-hoc signed (no Apple Developer account), so Gatekeeper blocks the first launch:
 
