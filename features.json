@@ -4,5 +4,10 @@
     "title": "Welcome",
     "description": "Unified attention dashboard — a desktop app that collects items that need your attention in one inbox, and keeps running in the background for syncs and notifications.",
     "version": "1.0.0"
+  },
+  {
+    "id": "gitlab-reviewer-mrs",
+    "title": "GitLab review requests",
+    "description": "GitLab sync now also shows open merge requests where you are a reviewer, even without a matching label."
   }
 ]

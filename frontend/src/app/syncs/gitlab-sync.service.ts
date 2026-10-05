@@ -47,7 +47,7 @@ export class GitlabSyncService extends SyncProvider {
           configKey: 'gitlab_mr_labels',
           label: 'MR Labels',
           type: 'text',
-          hint: 'Comma-separated labels. Shows all open MRs with any of these labels.',
+          hint: 'Comma-separated labels. Shows all open MRs with any of these labels (MRs where you are a reviewer are always shown).',
           placeholder: 'needs-review, my-team',
         },
       ],
@@ -65,17 +65,24 @@ export class GitlabSyncService extends SyncProvider {
     const labels = config.gitlab_mr_labels
       ? config.gitlab_mr_labels.split(',').map(l => l.trim()).filter(Boolean)
       : [];
-    if (labels.length === 0) return null;
 
     const base = config.gitlab_url.replace(/\/$/, '');
     const headers: [string, string][] = [['PRIVATE-TOKEN', config.gitlab_token!]];
 
-    // GitLab's labels param uses AND logic, so fetch per-label and deduplicate for OR behaviour
+    // GitLab's labels param uses AND logic, so fetch per-label and deduplicate for OR behaviour.
+    // MRs where I'm a reviewer are always included, regardless of labels.
+    const me: { id: number } = JSON.parse(
+      await this.shell.httpRequest(`${base}/api/v4/user`, 'GET', headers, null),
+    );
+    const queries = [
+      `scope=all&reviewer_id=${me.id}`,
+      ...labels.map(l => `scope=all&labels=${encodeURIComponent(l)}`),
+    ];
     const seenMrIds = new Set<number>();
     const items: Item[] = [];
-    for (const label of labels) {
+    for (const query of queries) {
       const mrsRaw = await this.shell.httpRequest(
-        `${base}/api/v4/merge_requests?scope=all&state=opened&labels=${encodeURIComponent(label)}&per_page=1000`,
+        `${base}/api/v4/merge_requests?state=opened&${query}&per_page=1000`,
         'GET',
         headers,
         null,
