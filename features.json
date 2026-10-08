@@ -14,7 +14,6 @@
   {
     "id": "sync-item-exists-fix",
     "title": "Sync fix",
-    "description": "Fixed the inbox going empty and an \"item already exists\" error when a sync found nothing to change, e.g. after marking all items done.",
-    "version": "1.1.1"
+    "description": "Fixed the inbox going empty and an \"item already exists\" error when a sync found nothing to change, e.g. after marking all items done."
   }
 ]
