@@ -16,5 +16,10 @@
     "title": "Sync fix",
     "description": "Fixed the inbox going empty and an \"item already exists\" error when a sync found nothing to change, e.g. after marking all items done.",
     "version": "1.1.1"
+  },
+  {
+    "id": "gerrit-outgoing-reviews",
+    "title": "Your Gerrit changes",
+    "description": "Gerrit sync now also shows your own open changes. They stay muted until a label goes negative or both Verified and Code-Review are positive."
   }
 ]
