@@ -20,11 +20,13 @@
   {
     "id": "gerrit-outgoing-reviews",
     "title": "Your Gerrit changes",
-    "description": "Gerrit sync now also shows your own open changes. They stay muted until a label goes negative or both Verified and Code-Review are positive."
+    "description": "Gerrit sync now also shows your own open changes. They stay muted until a label goes negative or both Verified and Code-Review are positive.",
+    "version": "1.2.0"
   },
   {
     "id": "github-gitlab-outgoing",
     "title": "Your GitHub PRs and GitLab MRs",
-    "description": "Your own open PRs and MRs are now flagged as outgoing and stay muted until they need you: changes requested, failing CI, conflicts, or ready to merge."
+    "description": "Your own open PRs and MRs are now flagged as outgoing and stay muted until they need you: changes requested, failing CI, conflicts, or ready to merge.",
+    "version": "1.2.0"
   }
 ]
