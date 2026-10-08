@@ -139,8 +139,10 @@ export class ItemsService {
     try {
       this._syncing.set(true);
       const {results, errors} = await this.coordinator.sync();
-      let items: Item[] | null = null;
-      const currentItems = this._items();
+      // Read from disk, not the signal: the signal can drift from items.json (e.g. after a failed sync),
+      // and a stale list makes createItem collide with ids that already exist.
+      const currentItems = await this.shell.getItems();
+      let items: Item[] = currentItems;
       for (const {source, items: fresh} of results) {
         const freshIds = new Set(fresh.map(i => i.id));
         for (const current of currentItems.filter(i => i.source === source && !freshIds.has(i.id))) {
@@ -163,7 +165,7 @@ export class ItemsService {
           }
         }
       }
-      const woken = await this.wakeExpiredSnoozes(items ?? []);
+      const woken = await this.wakeExpiredSnoozes(items);
       this._items.set(await this.applySnoozeRules(woken));
       return errors;
     } catch (e) {
