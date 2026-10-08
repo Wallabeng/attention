@@ -28,8 +28,8 @@ noted TODOs. The cognitive overhead of remembering _where_ to look is the proble
 
 ## Features
 
-- **Sync providers** (all implement `SyncProvider`): GitHub open PRs, Gerrit open reviews (incoming as reviewer + my own outgoing changes), Datadog alerting monitors,
-  GitLab MRs (label filter + me as reviewer), Jenkins failed builds, Jira assigned issues, SonarQube favorited-project issues (quality
+- **Sync providers** (all implement `SyncProvider`): GitHub open PRs (incl. my own outgoing PRs), Gerrit open reviews (incoming as reviewer + my own outgoing changes), Datadog alerting monitors,
+  GitLab MRs (label filter + me as reviewer + my own outgoing MRs), Jenkins failed builds, Jira assigned issues, SonarQube favorited-project issues (quality
   gates/issues/hotspots). Plus manual items.
 - **Item metadata**: each provider populates a generic `properties` map surfaced as inline badges (Gerrit label scores,
   Datadog status, GitLab/GitHub PR metadata, Jenkins build duration, Jira issue type/status/priority, SonarQube
@@ -550,7 +550,7 @@ The Docker tab requires the `docker` CLI (with the `compose` subcommand) on `PAT
 - Currently: `DatadogSyncService` flags every item as "more" (sync already filters to `status:(Alert OR Warn)`).
   `SonarqubeSyncService` flags an item as "more" when it's a failed-quality-gate item (id prefix `sonarqube-qg-`) —
   assigned-issue and hotspot items sort normally. `GerritSyncService` flags an item as "less" when its `Verified` or
-  `Code-Review` property starts with `-` (negative vote → ball is in author's court). Outgoing Gerrit changes (`owner:self`, tagged `Role: Outgoing`) are the inverse: "less" by default, normal attention only when any label is negative or both `Verified` and `Code-Review` are positive. `JenkinsSyncService` flags an
+  `Code-Review` property starts with `-` (negative vote → ball is in author's court). Outgoing Gerrit changes (`owner:self`, tagged `Role: Outgoing`) are the inverse: "less" by default, normal attention only when any label is negative or both `Verified` and `Code-Review` are positive. Outgoing GitHub PRs (author = me, tagged `Role: Outgoing`, with `Review` and `CI` badges from extra per-PR review/status/check-run calls) and outgoing GitLab MRs (`author_id` = me) are "less" by default: GitHub un-mutes on changes requested, approved, or failing CI; GitLab un-mutes when `detailed_merge_status` is one of `mergeable`, `broken_status`, `ci_must_pass`, `need_rebase`, `discussions_not_resolved`, `requested_changes`. `JenkinsSyncService` flags an
   item as "more" when it's a still-running build synced past the configured `jenkins_long_running_minutes` threshold
   (id prefix `jenkins-running-`).
 

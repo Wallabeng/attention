@@ -10,9 +10,18 @@ interface GhPullRequest {
   html_url: string;
   user: { login: string };
   draft: boolean;
+  number: number;
+  head: { sha: string };
   created_at: string;
   updated_at: string;
 }
+
+interface GhReview {
+  user: { login: string } | null;
+  state: string;
+}
+
+const OUTGOING = 'Outgoing';
 
 @Injectable()
 export class GithubSyncService extends SyncProvider {
@@ -44,7 +53,14 @@ export class GithubSyncService extends SyncProvider {
   }
 
   override getPropertyOrder(): string[] {
-    return ['Repo', 'Author', 'Status'];
+    return ['Repo', 'Author', 'Status', 'Review', 'CI', 'Role'];
+  }
+
+  override needsLessAttention(item: Item): boolean {
+    const props = item.properties;
+    if (props?.['Role'] !== OUTGOING) return false;
+    // Own PR: only needs me when changes were requested, CI is failing, or it is approved (merge it).
+    return !(props['Review'] === 'Changes requested' || props['Review'] === 'Approved' || props['CI'] === 'Failing');
   }
 
   async sync(): Promise<Item[] | null> {
@@ -61,6 +77,10 @@ export class GithubSyncService extends SyncProvider {
       ['X-GitHub-Api-Version', '2022-11-28'],
     ];
 
+    const me: { login: string } = JSON.parse(
+      await this.shell.httpRequest('https://api.github.com/user', 'GET', headers, null),
+    );
+
     const items: Item[] = [];
     for (const repo of repos) {
       const raw = await this.shell.httpRequest(
@@ -71,6 +91,8 @@ export class GithubSyncService extends SyncProvider {
       );
       const pulls: GhPullRequest[] = JSON.parse(raw);
       for (const pr of pulls) {
+        const outgoing = pr.user.login === me.login;
+        const outgoingProps = outgoing ? await this.outgoingProperties(repo, pr, headers) : {};
         items.push({
           id: `github-${pr.id}`,
           title: pr.title,
@@ -84,6 +106,7 @@ export class GithubSyncService extends SyncProvider {
             Repo: repo,
             Author: pr.user.login,
             Status: pr.draft ? 'Draft' : 'Open',
+            ...outgoingProps,
           },
           url: pr.html_url,
         });
@@ -91,5 +114,49 @@ export class GithubSyncService extends SyncProvider {
     }
 
     return items;
+  }
+
+  /** Review and CI state of one of my own PRs. A failed lookup is skipped rather than failing the sync. */
+  private async outgoingProperties(
+    repo: string,
+    pr: GhPullRequest,
+    headers: [string, string][],
+  ): Promise<Record<string, string>> {
+    const props: Record<string, string> = {Role: OUTGOING};
+    const api = `https://api.github.com/repos/${repo}`;
+
+    try {
+      const reviews: GhReview[] = JSON.parse(
+        await this.shell.httpRequest(`${api}/pulls/${pr.number}/reviews?per_page=100`, 'GET', headers, null),
+      );
+      // Latest decisive review per reviewer wins; comments and pending reviews don't change the decision.
+      const latest = new Map<string, string>();
+      for (const r of reviews) {
+        if (r.user && (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED' || r.state === 'DISMISSED')) {
+          latest.set(r.user.login, r.state);
+        }
+      }
+      const states = [...latest.values()];
+      if (states.includes('CHANGES_REQUESTED')) props['Review'] = 'Changes requested';
+      else if (states.includes('APPROVED')) props['Review'] = 'Approved';
+    } catch {
+      // leave Review unset
+    }
+
+    try {
+      const status: { state: string; total_count: number } = JSON.parse(
+        await this.shell.httpRequest(`${api}/commits/${pr.head.sha}/status`, 'GET', headers, null),
+      );
+      const checks: { check_runs: { conclusion: string | null }[] } = JSON.parse(
+        await this.shell.httpRequest(`${api}/commits/${pr.head.sha}/check-runs?per_page=100`, 'GET', headers, null),
+      );
+      const failedStatus = status.total_count > 0 && (status.state === 'failure' || status.state === 'error');
+      const failedCheck = checks.check_runs.some(c => ['failure', 'timed_out', 'cancelled', 'action_required'].includes(c.conclusion ?? ''));
+      if (failedStatus || failedCheck) props['CI'] = 'Failing';
+    } catch {
+      // leave CI unset
+    }
+
+    return props;
   }
 }
