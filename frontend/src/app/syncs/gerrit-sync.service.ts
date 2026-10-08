@@ -28,6 +28,10 @@ function gerritLabelProperties(labels: GerritChange['labels']): Record<string, s
   return Object.keys(props).length > 0 ? props : null;
 }
 
+const OUTGOING = 'Outgoing';
+// Non-label properties, so their values are never mistaken for label votes.
+const LABEL_KEYS_EXCLUDED = ['Project', 'Keyword', 'Role'];
+
 @Injectable()
 export class GerritSyncService extends SyncProvider {
   override readonly source = 'gerrit';
@@ -77,12 +81,18 @@ export class GerritSyncService extends SyncProvider {
   }
 
   override getPropertyOrder(): string[] {
-    return ['Verified', 'Code-Review', 'Project', 'Keyword'];
+    return ['Verified', 'Code-Review', 'Project', 'Keyword', 'Role'];
   }
 
   override needsLessAttention(item: Item): boolean {
     const props = item.properties;
     if (!props) return false;
+    if (props['Role'] === OUTGOING) {
+      // Own change: only needs me when a label is negative (fix it) or it is fully approved (submit it).
+      const anyNegative = Object.entries(props).some(([k, v]) => LABEL_KEYS_EXCLUDED.indexOf(k) < 0 && v.startsWith('-'));
+      const approved = props['Verified']?.startsWith('+') && props['Code-Review']?.startsWith('+');
+      return !(anyNegative || approved);
+    }
     return ['Verified', 'Code-Review'].some(label => props[label]?.startsWith('-'));
   }
 
@@ -98,8 +108,16 @@ export class GerritSyncService extends SyncProvider {
       credentials,
     );
 
-    const reviewerIds = new Set(reviewerChanges.map(c => c._number));
-    const reviewerItems = reviewerChanges.map(c => this.mapChange(c, base, null));
+    const outgoingChanges = await this.fetchChanges(
+      `${base}/a/changes/?q=owner:self+status:open&n=50&o=LABELS`,
+      credentials,
+    );
+
+    const reviewerIds = new Set([...reviewerChanges, ...outgoingChanges].map(c => c._number));
+    const reviewerItems = [
+      ...reviewerChanges.map(c => this.mapChange(c, base, null)),
+      ...outgoingChanges.map(c => this.mapChange(c, base, null, true)),
+    ];
 
     const keywords = config.gerrit_keywords
       ? config.gerrit_keywords.split('\n').map(k => k.trim()).filter(Boolean)
@@ -146,7 +164,7 @@ export class GerritSyncService extends SyncProvider {
     return JSON.parse(json);
   }
 
-  private mapChange(change: GerritChange, base: string, keyword: string | null): Item {
+  private mapChange(change: GerritChange, base: string, keyword: string | null, outgoing = false): Item {
     return {
       id: `gerrit-${change._number}`,
       title: change.subject,
@@ -160,6 +178,7 @@ export class GerritSyncService extends SyncProvider {
         Project: change.project,
         ...gerritLabelProperties(change.labels),
         ...(keyword ? {Keyword: keyword} : {}),
+        ...(outgoing ? {Role: OUTGOING} : {}),
       },
       url: `${base}/c/${change._number}`,
     };
