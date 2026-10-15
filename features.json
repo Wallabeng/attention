@@ -32,6 +32,7 @@
   {
     "id": "log-file-button",
     "title": "Open the app log",
-    "description": "A bug icon next to Settings opens the app's log file, which now also records frontend console output in release builds."
+    "description": "A bug icon next to Settings opens the app's log file, which now also records frontend console output in release builds.",
+    "version": "1.2.1"
   }
 ]
