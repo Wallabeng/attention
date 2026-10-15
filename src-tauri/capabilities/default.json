@@ -8,6 +8,7 @@
   "permissions": [
     "core:default",
     "notification:default",
+    "log:default",
     "autostart:allow-enable",
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
@@ -23,6 +24,7 @@
     "allow-http-request",
     "allow-notify",
     "allow-open-url",
+    "allow-open-log-file",
     "allow-run-in-terminal",
     "allow-open-stage-login",
     "allow-confirm-stage-login",

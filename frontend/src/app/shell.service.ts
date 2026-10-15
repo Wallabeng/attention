@@ -28,6 +28,10 @@ export class ShellService {
     invoke(CMD.openUrl, {url}).catch(() => {});
   }
 
+  openLogFile(): Promise<void> {
+    return invoke(CMD.openLogFile);
+  }
+
   notify(title: string, body: string): Promise<void> {
     return invoke(CMD.notify, {title, body});
   }
@@ -152,6 +156,26 @@ export class ShellService {
         await enable();
       } else {
         await disable();
+      }
+    } catch {
+      // no-op when running outside Tauri
+    }
+  }
+
+  /** Mirrors console.log/info/warn/error/debug into the Rust log file (see `open_log_file`),
+   *  while still printing to the webview console. No-op outside Tauri. */
+  async forwardConsoleToLog(): Promise<void> {
+    try {
+      const log = await import('@tauri-apps/plugin-log');
+      const targets = {log: log.info, info: log.info, warn: log.warn, error: log.error, debug: log.debug} as const;
+      for (const [name, write] of Object.entries(targets)) {
+        const key = name as keyof typeof targets;
+        const original = console[key].bind(console);
+        console[key] = (...args: unknown[]) => {
+          original(...args);
+          write(args.map(a => a instanceof Error ? a.stack ?? a.message : typeof a === 'string' ? a : JSON.stringify(a)).join(' '))
+            .catch(() => {});
+        };
       }
     } catch {
       // no-op when running outside Tauri

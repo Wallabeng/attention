@@ -5,8 +5,8 @@ use commands::{
     cancel_grid_fetch, confirm_stage_login, create_item, delete_item, docker_list_services,
     docker_pull_start, docker_service_action, docker_service_logs_start, docker_service_logs_stop,
     docker_service_status, fetch_grid_data, get_config, get_items, get_last_seen_feature, http_request, notify,
-    open_stage_login, open_url, report_grid_result, run_in_terminal, set_badge_count, set_config, set_last_seen_feature,
-    update_item, DockerLogsState, MonitoringState, TRAY_ID,
+    open_log_file, open_stage_login, open_url, report_grid_result, run_in_terminal, set_badge_count, set_config, set_last_seen_feature,
+    update_item, DockerLogsState, MonitoringState, LOG_FILE_NAME, TRAY_ID,
 };
 use tauri::{
     menu::{Menu, MenuItem},
@@ -14,6 +14,7 @@ use tauri::{
     AppHandle, Manager, WindowEvent,
 };
 use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_log::{Target, TargetKind};
 
 /// Restore and focus the main window (used by the tray "Show" action and left-click).
 fn show_main(app: &AppHandle) {
@@ -38,13 +39,18 @@ pub fn run() {
             app.manage(MonitoringState::default());
             app.manage(DockerLogsState::default());
 
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(log::LevelFilter::Info)
+                    .targets([
+                        Target::new(TargetKind::Stdout),
+                        Target::new(TargetKind::LogDir {
+                            file_name: Some(LOG_FILE_NAME.into()),
+                        }),
+                    ])
+                    .max_file_size(5_000_000)
+                    .build(),
+            )?;
 
             let show_i = MenuItem::with_id(app, "show", "Show Attention", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -122,6 +128,7 @@ pub fn run() {
             http_request,
             notify,
             open_url,
+            open_log_file,
             run_in_terminal,
             open_stage_login,
             confirm_stage_login,

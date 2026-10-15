@@ -26,5 +26,10 @@
     "id": "github-gitlab-outgoing",
     "title": "Your GitHub PRs and GitLab MRs",
     "description": "Your own open PRs and MRs are now flagged as outgoing and stay muted until they need you: changes requested, failing CI, conflicts, or ready to merge."
+  },
+  {
+    "id": "log-file-button",
+    "title": "Open the app log",
+    "description": "A bug icon next to Settings opens the app's log file, which now also records frontend console output in release builds."
   }
 ]

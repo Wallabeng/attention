@@ -46,6 +46,7 @@ export class AppComponent implements OnInit {
     private snackBar: MatSnackBar,
     private whatsNew: WhatsNewService,
   ) {
+    this.shell.forwardConsoleToLog();
   }
 
   async ngOnInit(): Promise<void> {
@@ -58,6 +59,10 @@ export class AppComponent implements OnInit {
 
   toggleSidebar(): void {
     this.sidebarOpen.update(v => !v);
+  }
+
+  openLogs(): void {
+    this.shell.openLogFile().catch(e => this.snackBar.open(`Could not open log file: ${e}`, 'Dismiss', {duration: 5000}));
   }
 
   openSettings(): void {
