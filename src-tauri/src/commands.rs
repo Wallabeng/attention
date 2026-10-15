@@ -515,6 +515,20 @@ pub fn open_url(url: String) -> Result<(), String> {
     open::that(url).map_err(|e| e.to_string())
 }
 
+/// Base name (without `.log`) of the app's log file in the OS log dir, written by `tauri-plugin-log`.
+pub const LOG_FILE_NAME: &str = "attention";
+
+/// Opens the app's log file in the OS default viewer.
+#[tauri::command]
+pub fn open_log_file(app: AppHandle) -> Result<(), String> {
+    let path = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| e.to_string())?
+        .join(format!("{LOG_FILE_NAME}.log"));
+    open::that(path).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn run_in_terminal(command: String, working_dir: String) -> Result<(), String> {
     run_in_terminal_impl(command, working_dir)

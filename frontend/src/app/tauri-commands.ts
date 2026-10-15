@@ -11,6 +11,7 @@ export const CMD = {
   httpRequest: 'http_request',
   notify: 'notify',
   openUrl: 'open_url',
+  openLogFile: 'open_log_file',
   runInTerminal: 'run_in_terminal',
   openStageLogin: 'open_stage_login',
   confirmStageLogin: 'confirm_stage_login',

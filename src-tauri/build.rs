@@ -14,6 +14,7 @@ fn main() {
         "http_request",
         "notify",
         "open_url",
+        "open_log_file",
         "run_in_terminal",
         "open_stage_login",
         "confirm_stage_login",

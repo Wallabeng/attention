@@ -42,6 +42,9 @@ noted TODOs. The cognitive overhead of remembering _where_ to look is the proble
   (shells out to local `copilot` CLI).
 - **Notifications & badges**: OS notifications on new items, window-title badge count, macOS Dock badge, tray tooltip.
   All reflect the open-item count excluding muted sources.
+- **Log file**: bug icon next to Settings opens `{app_log_dir}/attention.log` in the OS default viewer. Rust `log::`
+  output and every frontend `console.log/info/warn/error/debug` call (mirrored via `@tauri-apps/plugin-log`) land
+  there, in dev and release builds. 5 MB max, older content rotated out (plugin's default `KeepOne`).
 - **System tray**: left-click toggles window, right-click menu = Show/Quit. Closing the window hides to tray so
   auto-sync keeps running; quit only via tray.
 - **Autostart**: opt-in launch-on-login.
@@ -176,6 +179,7 @@ in the app manifest in `src-tauri/build.rs` and allowed (`allow-<name-with-dashe
 | `http_request`          | `url, method, headers, body`                                             | `Result<String, String>` — thin CORS-bypass proxy                                                                                                                                                                           |
 | `notify`                | `title, body`                                                            | `Result<(), String>`                                                                                                                                                                                                        |
 | `open_url`              | `url: String`                                                            | `Result<(), String>`                                                                                                                                                                                                        |
+| `open_log_file`         | —                                                                        | `Result<(), String>` — opens `{app_log_dir}/attention.log` (`LOG_FILE_NAME`) in the OS default viewer                                                                                                                      |
 | `set_badge_count`       | `count: usize`                                                           | —                                                                                                                                                                                                                           |
 | `open_stage_login`      | `stage_name, sso_login_url`                                              | `Result<(), String>`                                                                                                                                                                                                        |
 | `confirm_stage_login`   | `stage_name: String`                                                     | `Result<(), String>`                                                                                                                                                                                                        |
@@ -510,6 +514,8 @@ The Docker tab requires the `docker` CLI (with the `compose` subcommand) on `PAT
   `invoke()` calls live there.
 - All command name strings live in `tauri-commands.ts` as the `CMD` constant, imported only by `ShellService`. No raw
   string literals in `invoke()` calls.
+- `ShellService.forwardConsoleToLog()` (called from `AppComponent`'s constructor) wraps `console.*` so each call also
+  goes to the Rust log file via `@tauri-apps/plugin-log` (needs `log:default` in `capabilities/default.json`).
 - Backend is a thin proxy: `http_request` (CORS bypass), file I/O, `notify`, tray, close-to-tray, autostart. All sync
   logic lives in Angular.
 
