@@ -1194,8 +1194,13 @@ fn shell_command(command: &str) -> Result<tokio::process::Command, String> {
     };
     #[cfg(not(target_os = "windows"))]
     let cmd = {
-        let mut c = tokio::process::Command::new("sh");
-        c.args(["-c", command]);
+        // Run through the user's own login + interactive shell so it sources the same profile/rc
+        // files as a terminal (a GUI-launched app inherits only a minimal environment, unlike
+        // `tauri dev`). `-i` is needed because zsh/bash read .zshrc/.bashrc only when interactive.
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+        let mut c = tokio::process::Command::new(shell);
+        c.args(["-l", "-i", "-c", command]);
+        c.stdin(std::process::Stdio::null());
         c
     };
     Ok(cmd)
