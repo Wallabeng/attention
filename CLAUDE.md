@@ -385,7 +385,7 @@ rest of this backend's "thin proxy" style:
 - `docker_pull_start` backs the "Pull & Start" button. With no `pull_start_command` configured it's the default two-step
   call — `pull <service>` then `up -d <service>` — same as the other actions. When a command template is configured,
   it's textually substituted (`{service}` → the service name, `{compose_path}` → the configured compose path) and run
-  through a shell (`sh -c` on Unix, `cmd /C` on Windows) instead — needed because a user-supplied command is an
+  through a shell (`$SHELL -l -i -c` on Unix — the user's own login+interactive shell, so a GUI-launched build gets the same environment as a terminal — and `cmd /C` on Windows) instead — needed because a user-supplied command is an
   arbitrary string (e.g. two `docker compose` calls joined with `&&`), not a fixed argv this app builds itself. This is
   the one place Rust runs a string the user wrote rather than args it assembles itself; it intentionally has no
   allowlist or validation, matching the same personal-use trust model as `gerrit_repos_root`/`run_in_terminal`.
