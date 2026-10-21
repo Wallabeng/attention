@@ -1,4 +1,4 @@
-import {describeEntityPath, fetchNamespaceRows, listNamespaceEntities} from './servicebus-api.util';
+import {describeEntityPath, fetchNamespaceRows, listQueues, listSubscriptions, listTopics} from './servicebus-api.util';
 import {ServiceBusNamespace} from './servicebus-namespace.model';
 
 const NS: ServiceBusNamespace = {
@@ -49,17 +49,31 @@ describe('servicebus-api.util', () => {
     expect(errors).toEqual(['prod / queues/gone: 404']);
   });
 
-  it('lists queues, topics and subscriptions, following nextLink', async () => {
+  it('lists queues, following nextLink', async () => {
+    const urls: string[] = [];
     const http = async (url: string) => {
+      urls.push(url);
       if (url === `${BASE}/queues?api-version=2021-11-01`) {
         return JSON.stringify({value: [{name: 'q1'}], nextLink: 'https://next/queues'});
       }
       if (url === 'https://next/queues') return JSON.stringify({value: [{name: 'q2'}]});
-      if (url.includes('/topics?')) return JSON.stringify({value: [{name: 't1'}]});
-      if (url.includes('/topics/t1/subscriptions?')) return JSON.stringify({value: [{name: 's1'}]});
       throw new Error(url);
     };
-    const entities = await listNamespaceEntities(http, 'tok', NS);
-    expect(entities.map(e => e.path)).toEqual(['queues/q1', 'queues/q2', 'topics/t1', 'topics/t1/subscriptions/s1']);
+    const queues = await listQueues(http, 'tok', NS);
+    expect(queues.map(e => e.path)).toEqual(['queues/q1', 'queues/q2']);
+    expect(urls.length).toBe(2);
+  });
+
+  it('lists topics and one topic\'s subscriptions with a call each', async () => {
+    const urls: string[] = [];
+    const http = async (url: string) => {
+      urls.push(url);
+      if (url.includes('/topics/t1/subscriptions?')) return JSON.stringify({value: [{name: 's1'}]});
+      if (url.includes('/topics?')) return JSON.stringify({value: [{name: 't1'}, {name: 't2'}]});
+      throw new Error(url);
+    };
+    expect((await listTopics(http, 'tok', NS)).map(e => e.path)).toEqual(['topics/t1', 'topics/t2']);
+    expect((await listSubscriptions(http, 'tok', NS, 't1')).map(e => e.path)).toEqual(['topics/t1/subscriptions/s1']);
+    expect(urls.length).toBe(2);
   });
 });

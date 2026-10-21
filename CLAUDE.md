@@ -488,8 +488,10 @@ button. Independent of the `Item`/`SyncProvider` model.
   shell, so a GUI-launched app finds `az`; last stdout line = token). The user needs the `Reader` role on the
   namespace and must have run `az login`. Requests go through `http_request` as ARM (`management.azure.com`) calls.
 - **Config**: each namespace is `{name, subscription_id, resource_group, namespace, entities[]}`; Settings' "Service
-  Bus" section edits them. "Entities (N)" opens `ServiceBusEntityPickerDialogComponent`, which lists the namespace's
-  queues, topics and subscriptions (`listNamespaceEntities`, follows `nextLink`) as checkboxes.
+  Bus" section edits them. "Entities (N)" opens `ServiceBusEntityPickerDialogComponent`, which loads lazily to keep Azure
+  calls minimal: nothing is fetched until the user picks "Queues" or "Topics" (`listQueues` / `listTopics`, one
+  paged list call, cached per kind), and a topic's subscriptions (`listSubscriptions`) are fetched only when that
+  topic is expanded. Selections persist across kinds and expansions.
 - **Data**: `fetchNamespaceRows` (`servicebus-api.util.ts`) GETs each selected entity individually
   (`.../queues/{q}`, `.../topics/{t}`, `.../topics/{t}/subscriptions/{s}`, `api-version=2021-11-01`) and reads
   `properties.countDetails`. Subscription rows are named `topic / subscription`. A failing entity (e.g. deleted)

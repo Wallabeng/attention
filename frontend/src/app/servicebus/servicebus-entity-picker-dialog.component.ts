@@ -1,23 +1,37 @@
-import {Component, computed, inject, OnInit, signal} from '@angular/core';
+import {Component, computed, inject, signal} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
+import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
+import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {ShellService} from '../shell.service';
-import {listNamespaceEntities, ServiceBusEntityRef} from './servicebus-api.util';
+import {listQueues, listSubscriptions, listTopics, ServiceBusEntityRef} from './servicebus-api.util';
 import {ServiceBusNamespace} from './servicebus-namespace.model';
 
+type EntityKind = 'queues' | 'topics';
+
+/**
+ * Loads lazily to keep Azure calls minimal: nothing is fetched until a kind is chosen, then one
+ * list call for that kind, and a topic's subscriptions only when that topic is expanded.
+ */
 @Component({
   selector: 'app-servicebus-entity-picker-dialog',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatCheckboxModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule],
+  imports: [FormsModule, MatButtonModule, MatButtonToggleModule, MatCheckboxModule, MatDialogModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule],
   template: `
     <h2 mat-dialog-title>Select entities — {{ data.ns.name }}</h2>
     <mat-dialog-content>
-      @if (loading()) {
+      <mat-button-toggle-group [value]="kind()" (change)="selectKind($event.value)" aria-label="Entity type">
+        <mat-button-toggle value="queues">Queues</mat-button-toggle>
+        <mat-button-toggle value="topics">Topics</mat-button-toggle>
+      </mat-button-toggle-group>
+      @if (!kind()) {
+        <p class="hint">Choose queues or topics to load them.</p>
+      } @else if (loading()) {
         <mat-spinner diameter="32"></mat-spinner>
       } @else if (error()) {
         <p class="error">{{ error() }}</p>
@@ -27,57 +41,137 @@ import {ServiceBusNamespace} from './servicebus-namespace.model';
           <input matInput [ngModel]="filter()" (ngModelChange)="filter.set($event)"/>
         </mat-form-field>
         @for (entity of visible(); track entity.path) {
-          <div class="entity" [class.indent]="entity.type === 'subscription'">
+          <div class="entity">
+            @if (kind() === 'topics') {
+              <button mat-icon-button type="button" (click)="toggleExpanded(entity.label)"
+                      [attr.aria-label]="'Show subscriptions of ' + entity.label">
+                <mat-icon>{{ expanded().has(entity.label) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+              </button>
+            }
             <mat-checkbox [checked]="selected().has(entity.path)" (change)="toggle(entity.path, $event.checked)">
-              {{ entity.label }} <span class="type">{{ entity.type }}</span>
+              {{ entity.label }}
             </mat-checkbox>
           </div>
-        }
-        @if (visible().length === 0) {
-          <p>No entities found.</p>
+          @if (kind() === 'topics' && expanded().has(entity.label)) {
+            @if (subscriptionsLoading().has(entity.label)) {
+              <mat-spinner class="indent" diameter="20"></mat-spinner>
+            } @else if (subscriptionErrors()[entity.label]) {
+              <p class="error indent">{{ subscriptionErrors()[entity.label] }}</p>
+            } @else {
+              @for (sub of subscriptions()[entity.label] ?? []; track sub.path) {
+                <div class="entity indent">
+                  <mat-checkbox [checked]="selected().has(sub.path)" (change)="toggle(sub.path, $event.checked)">
+                    {{ sub.label.split(' / ')[1] }}
+                  </mat-checkbox>
+                </div>
+              } @empty {
+                <p class="hint indent">No subscriptions.</p>
+              }
+            }
+          }
+        } @empty {
+          <p class="hint">No {{ kind() }} found.</p>
         }
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancel</button>
-      <button mat-flat-button color="primary" [disabled]="loading() || !!error()" (click)="confirm()">
-        Select ({{ selected().size }})
-      </button>
+      <button mat-flat-button color="primary" (click)="confirm()">Select ({{ selected().size }})</button>
     </mat-dialog-actions>
   `,
   styles: [`
-    .filter { width: 100%; margin-bottom: 8px; }
-    .entity { display: block; }
-    .indent { margin-left: 24px; }
-    .type { opacity: 0.6; font-size: 12px; margin-left: 6px; }
+    .filter { width: 100%; margin: 12px 0 8px; }
+    .entity { display: flex; align-items: center; }
+    .indent { margin-left: 48px; }
+    .hint { opacity: 0.7; }
     .error { color: #b3261e; }
+    mat-button-toggle-group { margin-top: 4px; }
   `],
 })
-export class ServiceBusEntityPickerDialogComponent implements OnInit {
+export class ServiceBusEntityPickerDialogComponent {
   data = inject<{ ns: ServiceBusNamespace }>(MAT_DIALOG_DATA);
   private dialogRef = inject(MatDialogRef<ServiceBusEntityPickerDialogComponent, string[]>);
   private shell = inject(ShellService);
+  private token: string | null = null;
 
-  loading = signal(true);
+  kind = signal<EntityKind | null>(null);
+  loading = signal(false);
   error = signal<string | null>(null);
   filter = signal('');
+  /** Lists already fetched, so switching back and forth doesn't refetch. */
+  private loaded: Partial<Record<EntityKind, ServiceBusEntityRef[]>> = {};
   entities = signal<ServiceBusEntityRef[]>([]);
+  expanded = signal(new Set<string>());
+  subscriptions = signal<Record<string, ServiceBusEntityRef[]>>({});
+  subscriptionsLoading = signal(new Set<string>());
+  subscriptionErrors = signal<Record<string, string>>({});
   selected = signal(new Set<string>(this.data.ns.entities));
 
   visible = computed(() => {
     const needle = this.filter().trim().toLowerCase();
-    return needle ? this.entities().filter(e => e.path.toLowerCase().includes(needle)) : this.entities();
+    return needle ? this.entities().filter(e => e.label.toLowerCase().includes(needle)) : this.entities();
   });
 
-  async ngOnInit(): Promise<void> {
+  private http = (url: string, method: string, headers: [string, string][], body: string | null) =>
+    this.shell.httpRequest(url, method, headers, body);
+
+  private async getToken(): Promise<string> {
+    return this.token ??= await this.shell.azureAccessToken();
+  }
+
+  async selectKind(kind: EntityKind): Promise<void> {
+    this.kind.set(kind);
+    this.error.set(null);
+    this.filter.set('');
+    const cached = this.loaded[kind];
+    if (cached) {
+      this.entities.set(cached);
+      return;
+    }
+    this.entities.set([]);
+    this.loading.set(true);
     try {
-      const token = await this.shell.azureAccessToken();
-      this.entities.set(await listNamespaceEntities(
-        (url, method, headers, body) => this.shell.httpRequest(url, method, headers, body), token, this.data.ns));
+      const token = await this.getToken();
+      const list = kind === 'queues'
+        ? await listQueues(this.http, token, this.data.ns)
+        : await listTopics(this.http, token, this.data.ns);
+      this.loaded[kind] = list;
+      if (this.kind() === kind) this.entities.set(list);
     } catch (e) {
-      this.error.set(e instanceof Error ? e.message : String(e));
+      if (this.kind() === kind) this.error.set(e instanceof Error ? e.message : String(e));
     } finally {
-      this.loading.set(false);
+      if (this.kind() === kind) this.loading.set(false);
+    }
+  }
+
+  async toggleExpanded(topic: string): Promise<void> {
+    const next = new Set(this.expanded());
+    if (next.delete(topic)) {
+      this.expanded.set(next);
+      return;
+    }
+    next.add(topic);
+    this.expanded.set(next);
+    if (this.subscriptions()[topic]) return;
+    this.subscriptionErrors.update(({[topic]: _, ...rest}) => rest);
+    this.subscriptionsLoading.update(s => new Set(s).add(topic));
+    try {
+      const subs = await listSubscriptions(this.http, await this.getToken(), this.data.ns, topic);
+      this.subscriptions.update(all => ({...all, [topic]: subs}));
+    } catch (e) {
+      this.subscriptionErrors.update(all => ({...all, [topic]: e instanceof Error ? e.message : String(e)}));
+      // Collapse so the next click retries.
+      this.expanded.update(s => {
+        const copy = new Set(s);
+        copy.delete(topic);
+        return copy;
+      });
+    } finally {
+      this.subscriptionsLoading.update(s => {
+        const copy = new Set(s);
+        copy.delete(topic);
+        return copy;
+      });
     }
   }
 
@@ -88,7 +182,6 @@ export class ServiceBusEntityPickerDialogComponent implements OnInit {
   }
 
   confirm(): void {
-    // Keep the listing's order; entities that no longer exist stay out of the selection.
-    this.dialogRef.close(this.entities().map(e => e.path).filter(p => this.selected().has(p)));
+    this.dialogRef.close([...this.selected()].sort());
   }
 }

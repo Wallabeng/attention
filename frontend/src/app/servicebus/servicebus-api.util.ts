@@ -71,25 +71,29 @@ export function describeEntityPath(path: string): Pick<ServiceBusEntityRef, 'typ
   return {type: 'subscription', label: `${parts[1]} / ${parts[3]}`};
 }
 
-/** Every queue, topic and subscription in a namespace, for the picker. */
-export async function listNamespaceEntities(
-  http: Http, token: string, ns: ServiceBusNamespace,
+function toRefs(entities: ArmEntity[], prefix: string): ServiceBusEntityRef[] {
+  return entities.map(e => {
+    const path = `${prefix}${e.name}`;
+    return {path, ...describeEntityPath(path)};
+  });
+}
+
+/** Queues of a namespace, for the picker (one list call). */
+export async function listQueues(http: Http, token: string, ns: ServiceBusNamespace): Promise<ServiceBusEntityRef[]> {
+  return toRefs(await armList(http, token, `${namespaceBase(ns)}/queues`), 'queues/');
+}
+
+/** Topics of a namespace, for the picker (one list call; subscriptions are loaded per topic). */
+export async function listTopics(http: Http, token: string, ns: ServiceBusNamespace): Promise<ServiceBusEntityRef[]> {
+  return toRefs(await armList(http, token, `${namespaceBase(ns)}/topics`), 'topics/');
+}
+
+/** Subscriptions of one topic, for the picker. */
+export async function listSubscriptions(
+  http: Http, token: string, ns: ServiceBusNamespace, topic: string,
 ): Promise<ServiceBusEntityRef[]> {
-  const base = namespaceBase(ns);
-  const [queues, topics] = await Promise.all([
-    armList(http, token, `${base}/queues`),
-    armList(http, token, `${base}/topics`),
-  ]);
-  const subscriptions = await Promise.all(topics.map(async t =>
-    ({topic: t.name, subs: await armList(http, token, `${base}/topics/${encodeURIComponent(t.name)}/subscriptions`)})));
-  const paths = [
-    ...queues.map(q => `queues/${q.name}`),
-    ...topics.flatMap(t => [
-      `topics/${t.name}`,
-      ...subscriptions.find(s => s.topic === t.name)!.subs.map(s => `topics/${t.name}/subscriptions/${s.name}`),
-    ]),
-  ];
-  return paths.map(path => ({path, ...describeEntityPath(path)}));
+  const entities = await armList(http, token, `${namespaceBase(ns)}/topics/${encodeURIComponent(topic)}/subscriptions`);
+  return toRefs(entities, `topics/${topic}/subscriptions/`);
 }
 
 /** Rows for the namespace's selected entities; one entity failing doesn't hide the others. */
