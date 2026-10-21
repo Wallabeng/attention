@@ -10,6 +10,8 @@ export interface ServiceBusEntityRow {
   scheduled: number;
   transfer: number;
   total: number;
+  /** Azure portal blade for the entity. */
+  portalUrl: string;
 }
 
 export interface ServiceBusEntityRef {
@@ -46,6 +48,12 @@ function namespaceBase(ns: ServiceBusNamespace): string {
   return `${ARM}/subscriptions/${encodeURIComponent(ns.subscription_id)}`
     + `/resourceGroups/${encodeURIComponent(ns.resource_group)}`
     + `/providers/Microsoft.ServiceBus/namespaces/${encodeURIComponent(ns.namespace)}`;
+}
+
+/** Portal deep link to an entity (path as in `ServiceBusNamespace.entities`). */
+export function portalUrl(ns: ServiceBusNamespace, path: string): string {
+  const resourceId = namespaceBase(ns).slice(ARM.length) + '/' + path.split('/').map(encodeURIComponent).join('/');
+  return `https://portal.azure.com/#resource${resourceId}/overview`;
 }
 
 async function armGet<T>(http: Http, token: string, url: string): Promise<T> {
@@ -112,7 +120,7 @@ export async function fetchNamespaceRows(
     const {type, label} = describeEntityPath(path);
     const row: ServiceBusEntityRow = {
       namespace: ns.name, type, name: label, active, deadLetter, scheduled, transfer,
-      total: active + deadLetter + scheduled + transfer,
+      total: active + deadLetter + scheduled + transfer, portalUrl: portalUrl(ns, path),
     };
     return row;
   }));

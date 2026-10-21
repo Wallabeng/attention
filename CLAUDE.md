@@ -498,7 +498,7 @@ button. Independent of the `Item`/`SyncProvider` model.
 - **Data**: `fetchNamespaceRows` (`servicebus-api.util.ts`) GETs each selected entity individually
   (`.../queues/{q}`, `.../topics/{t}`, `.../topics/{t}/subscriptions/{s}`, `api-version=2021-11-01`) and reads
   `properties.countDetails`. Subscription rows are named `topic / subscription`. A failing entity (e.g. deleted)
-  shows an error banner while the other rows still render. Namespaces without selected entities are skipped.
+  shows an error banner while the other rows still render. Each row's name is a link to the entity's Azure portal blade (`portalUrl`, `https://portal.azure.com/#resource/<ARM id>/overview`), opened in the default browser via `ShellService.openUrl`. Namespaces without selected entities are skipped.
 - Loaded on tab init and via the refresh button (no polling). Requires the `az` CLI on the user's shell `PATH`.
 
 ## Dev Commands

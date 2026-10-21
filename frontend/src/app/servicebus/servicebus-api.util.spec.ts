@@ -1,4 +1,4 @@
-import {describeEntityPath, fetchNamespaceRows, listQueues, listSubscriptions, listTopics} from './servicebus-api.util';
+import {describeEntityPath, fetchNamespaceRows, portalUrl, listQueues, listSubscriptions, listTopics} from './servicebus-api.util';
 import {ServiceBusNamespace} from './servicebus-namespace.model';
 
 const NS: ServiceBusNamespace = {
@@ -22,6 +22,11 @@ describe('servicebus-api.util', () => {
     expect(describeEntityPath('topics/t1/subscriptions/s1')).toEqual({type: 'subscription', label: 't1 / s1'});
   });
 
+  it('builds portal links', () => {
+    expect(portalUrl(NS, 'topics/t1/subscriptions/s1')).toBe(
+      'https://portal.azure.com/#resource/subscriptions/sub1/resourceGroups/rg1/providers/Microsoft.ServiceBus/namespaces/my-ns/topics/t1/subscriptions/s1/overview');
+  });
+
   it('fetches only the selected entities, with a bearer token', async () => {
     const urls: string[] = [];
     const http = async (url: string, _m: string, headers: [string, string][]) => {
@@ -35,6 +40,7 @@ describe('servicebus-api.util', () => {
       `${BASE}/topics/t1/subscriptions/s1?api-version=2021-11-01`,
     ]);
     expect(errors).toEqual([]);
+    expect(rows[0].portalUrl).toContain('/namespaces/my-ns/queues/q1/overview');
     expect(rows.map(r => [r.namespace, r.type, r.name, r.active, r.deadLetter, r.total]))
       .toEqual([['prod', 'queue', 'q1', 4, 1, 5], ['prod', 'subscription', 't1 / s1', 4, 1, 5]]);
   });

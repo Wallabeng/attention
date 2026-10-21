@@ -50,6 +50,11 @@ export class ServiceBusComponent implements OnInit {
     return this.refresh();
   }
 
+  openPortal(event: Event, url: string): void {
+    event.preventDefault();
+    this.shell.openUrl(url);
+  }
+
   async refresh(): Promise<void> {
     if (this.loading()) return;
     this.loading.set(true);
