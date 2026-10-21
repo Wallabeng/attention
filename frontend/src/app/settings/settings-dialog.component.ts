@@ -9,6 +9,7 @@ import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {MatSnackBar, MatSnackBarModule} from '@angular/material/snack-bar';
 import {ConfigService} from '../config.service';
+import {ServiceBusNamespace} from '../servicebus/servicebus-namespace.model';
 import {ShellService} from '../shell.service';
 import {SYNC_PROVIDERS} from '../syncs/sync-providers.token';
 import {SettingsSection} from '../syncs/sync-provider';
@@ -73,6 +74,27 @@ import {SettingsSection} from '../syncs/sync-provider';
           is clicked. Use {{'{'}}service{{'}'}} (and optionally {{'{'}}compose_path{{'}'}}) as placeholders; runs through a shell.
         </mat-hint>
       </mat-form-field>
+      <h3 class="section-label">Service Bus</h3>
+      @for (ns of servicebusNamespaces; track $index) {
+        <div class="namespace-row">
+          <mat-form-field appearance="outline" class="namespace-name">
+            <mat-label>Name</mat-label>
+            <input matInput [(ngModel)]="ns.name" placeholder="prod"/>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="namespace-conn">
+            <mat-label>Connection string</mat-label>
+            <input matInput type="password" [(ngModel)]="ns.connection_string"
+                   placeholder="Endpoint=sb://...;SharedAccessKeyName=...;SharedAccessKey=..."/>
+          </mat-form-field>
+          <button mat-icon-button type="button" (click)="removeNamespace($index)" aria-label="Remove namespace">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+      }
+      <div>
+        <button mat-button type="button" (click)="addNamespace()"><mat-icon>add</mat-icon> Add namespace</button>
+      </div>
+      <mat-hint class="checkbox-hint">The key needs the Manage claim to read message counts. All namespaces are shown together in the Service Bus tab.</mat-hint>
       <h3 class="section-label">Application</h3>
       <mat-slide-toggle
         [checked]="autostart()"
@@ -97,6 +119,20 @@ import {SettingsSection} from '../syncs/sync-provider';
       margin: 30px 0 4px;
     }
 
+    .namespace-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .namespace-name {
+      flex: 0 0 160px;
+    }
+
+    .namespace-conn {
+      flex: 1;
+    }
+
     .checkbox-field {
       margin: 8px 0;
     }
@@ -115,6 +151,7 @@ export class SettingsDialogComponent implements OnInit {
   autostart = signal(false);
   dockerComposePath = '';
   pullStartCommand = '';
+  servicebusNamespaces: ServiceBusNamespace[] = [];
 
   private visibility = new Map<string, ReturnType<typeof signal<boolean>>>();
   private config = inject(ConfigService);
@@ -144,6 +181,7 @@ export class SettingsDialogComponent implements OnInit {
     }
     this.dockerComposePath = cfg.docker_compose_path ?? '';
     this.pullStartCommand = cfg.pull_start_command ?? '';
+    this.servicebusNamespaces = (cfg.servicebus_namespaces ?? []).map(ns => ({...ns}));
 
     this.autostart.set(await this.shell.isAutostartEnabled());
   }
@@ -152,6 +190,14 @@ export class SettingsDialogComponent implements OnInit {
     // Applied immediately: the OS plugin is the source of truth, not Config JSON.
     await this.shell.setAutostart(enabled);
     this.autostart.set(enabled);
+  }
+
+  addNamespace(): void {
+    this.servicebusNamespaces.push({name: '', connection_string: ''});
+  }
+
+  removeNamespace(index: number): void {
+    this.servicebusNamespaces.splice(index, 1);
   }
 
   showField(key: string): boolean {
@@ -173,6 +219,9 @@ export class SettingsDialogComponent implements OnInit {
     }
     update.docker_compose_path = this.dockerComposePath.trim() || null;
     update.pull_start_command = this.pullStartCommand.trim() || null;
+    update.servicebus_namespaces = this.servicebusNamespaces
+      .map(ns => ({name: ns.name.trim(), connection_string: ns.connection_string.trim()}))
+      .filter(ns => ns.name && ns.connection_string);
     try {
       await this.config.set(update);
     } catch (e) {

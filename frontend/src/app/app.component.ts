@@ -7,6 +7,7 @@ import {MatSnackBar, MatSnackBarModule} from '@angular/material/snack-bar';
 import {MatToolbarModule} from '@angular/material/toolbar';
 import {ItemsService} from './items.service';
 import {DockerComponent} from './docker/docker.component';
+import {ServiceBusComponent} from './servicebus/servicebus.component';
 import {InboxComponent} from './inbox/inbox.component';
 import {MonitoringComponent} from './monitoring/monitoring.component';
 import {SettingsDialogComponent} from './settings/settings-dialog.component';
@@ -21,6 +22,7 @@ import {WhatsNewService} from './whats-new/whats-new.service';
   standalone: true,
   imports: [
     DockerComponent,
+    ServiceBusComponent,
     InboxComponent,
     MatBadgeModule,
     MatButtonModule,
@@ -35,7 +37,7 @@ import {WhatsNewService} from './whats-new/whats-new.service';
 })
 export class AppComponent implements OnInit {
   sidebarOpen = signal(true);
-  activeView = signal<'inbox' | 'monitoring' | 'docker'>('inbox');
+  activeView = signal<'inbox' | 'monitoring' | 'docker' | 'servicebus'>('inbox');
 
   constructor(
     protected items: ItemsService,

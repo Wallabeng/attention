@@ -40,5 +40,10 @@
     "title": "Pull & Start works in the installed app",
     "description": "The custom Pull & Start command now runs in your login shell, so scripts and tools found in a terminal are also found when the app is launched from the Dock.",
     "version": "1.2.2"
+  },
+  {
+    "id": "servicebus-tab",
+    "title": "Service Bus tab",
+    "description": "A new tab after Docker lists every queue, topic and subscription of your Azure Service Bus namespaces with their message counts. Add namespaces by connection string in Settings."
   }
 ]

@@ -60,6 +60,9 @@ noted TODOs. The cognitive overhead of remembering _where_ to look is the proble
   `docker compose logs`, reusing the same bottom console drawer as actions. Fires an OS desktop notification whenever
   any service's state or health changes between polls (e.g. a crash or a recovery) — see
   [Docker Orchestration](#docker-orchestration).
+- **Azure Service Bus**: separate tab after Docker showing one flat, sortable, filterable table of every queue, topic and
+  subscription (with active / dead-letter / scheduled / transfer / total message counts) across all configured
+  namespaces at once — see [Azure Service Bus](#azure-service-bus).
 
 ## Stack
 
@@ -109,6 +112,10 @@ attention/
 │   │   │   │   └── snooze-group-dialog.component.ts
 │   │   │   ├── settings/
 │   │   │   │   └── settings-dialog.component.ts
+│   │   │   ├── servicebus/                      # Azure Service Bus tab
+│   │   │   │   ├── servicebus.component.*
+│   │   │   │   ├── servicebus-namespace.model.ts
+│   │   │   │   └── servicebus-api.util.ts       # Connection-string parsing, SAS token, ATOM feed parsing, row collection
 │   │   │   ├── docker/                          # Docker orchestration tab
 │   │   │   │   ├── docker.component.*
 │   │   │   │   ├── docker-service-status.model.ts
@@ -239,6 +246,7 @@ Stored in `{app_data_dir}/config.json`. Credential fields (marked **keychain**) 
 | `monitoring_hidden_columns` | Per grid-type hidden-column names (`Record<gridKey, string[]>`). Applies across every stage — hiding a column is a grid-schema-level preference, not a stage-level one. `tenantGroup` is never hidden.                                                                                                                |
 | `docker_compose_path`       | Path to a docker-compose.yaml on disk, edited in Settings. Read by the Docker tab; not a keychain secret.                                                                                                                                                                                                             |
 | `pull_start_command`        | Optional custom shell command template for the Docker tab's "Pull & Start" button, edited in Settings. `{service}` and `{compose_path}` are substituted before running through a shell. Empty/unset falls back to the default `docker compose pull` + `docker compose up -d` for that service. Not a keychain secret. |
+| `servicebus_namespaces`     | Azure Service Bus namespaces (`{name, connection_string}[]`), edited in Settings' "Service Bus" section. `connection_string` is a **keychain** secret, bundled per namespace as `servicebus_connection_string::{name}` and stripped from `config.json` (same scheme as monitoring stage passwords; renaming/removing a namespace orphans its old keychain entry). |
 | `docker_favorite_services`  | Service names starred as favorites in the Docker tab (`string[]`). Toggled inline from the tab itself, not the Settings dialog.                                                                                                                                                                                       |
 
 ## Tenant Group Monitoring
@@ -465,6 +473,24 @@ freshly-fetched `state`/`health` against that baseline. Any difference — in ei
 recovery — fires `ShellService.notify('Docker', ...)` with a body like `service — state: running → exited` (both state
 and health changes are listed if both changed in the same poll). Applies to every service, not just favorites; there's
 no settings toggle to disable it.
+
+## Azure Service Bus
+
+A **Service Bus** tab (sibling after Docker via `AppComponent`'s `activeView` signal) shows one flat table of every
+queue, topic and subscription across all configured namespaces, with columns Namespace, Type, Name, Active,
+Dead-letter, Scheduled, Transfer, Total. Sortable, text-filterable, with a refresh button. Independent of the
+`Item`/`SyncProvider` model; no Rust commands of its own — it only uses `http_request`.
+
+- **Auth**: per-namespace connection string (`Endpoint=sb://…;SharedAccessKeyName=…;SharedAccessKey=…`). The SAS key
+  needs the `Manage` claim, since counts come from the management (ATOM) endpoint. `buildSasToken` signs a 1-hour SAS
+  token with WebCrypto HMAC-SHA256.
+- **Data**: `fetchNamespaceRows` (`servicebus-api.util.ts`) pages (`$skip`/`$top=100`) through
+  `https://{host}/$Resources/Queues`, `$Resources/Topics` and `{topic}/subscriptions` (`api-version=2017-04`), parsing
+  `CountDetails` out of each Atom entry. Topic rows carry the topic's own counts (typically only scheduled);
+  subscription rows are named `topic / subscription`.
+- **Failure isolation**: namespaces load in parallel via `Promise.allSettled`; a failing namespace shows an error
+  banner while the others' rows still render.
+- Loaded on tab init and via the refresh button (no polling).
 
 ## Dev Commands
 

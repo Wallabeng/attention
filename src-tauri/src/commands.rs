@@ -185,6 +185,19 @@ pub struct Config {
     /// listed ahead of all others, regardless of state.
     #[serde(default)]
     pub docker_favorite_services: Vec<String>,
+    /// Azure Service Bus namespaces shown in the Service Bus tab. Each one's connection
+    /// string is a keychain secret, stripped from config.json like monitoring passwords.
+    #[serde(default)]
+    pub servicebus_namespaces: Vec<ServiceBusNamespace>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ServiceBusNamespace {
+    pub name: String,
+    /// Full `Endpoint=sb://...;SharedAccessKeyName=...;SharedAccessKey=...` string.
+    /// Keychain-backed; never written to config.json.
+    #[serde(default)]
+    pub connection_string: String,
 }
 
 /// Service name under which all credentials are namespaced in the OS keychain.
@@ -310,6 +323,37 @@ fn strip_monitoring_secrets(value: &mut serde_json::Value) {
     }
 }
 
+/// Keychain key for a Service Bus namespace's connection string, namespaced by the
+/// display name. Like monitoring stages, renaming or removing a namespace orphans
+/// its old entry.
+fn servicebus_secret_key(name: &str) -> String {
+    format!("servicebus_connection_string::{name}")
+}
+
+fn hydrate_servicebus_secrets(config: &mut Config, bundle: &HashMap<String, String>) {
+    for ns in &mut config.servicebus_namespaces {
+        ns.connection_string = bundle.get(&servicebus_secret_key(&ns.name)).cloned().unwrap_or_default();
+    }
+}
+
+fn persist_servicebus_secrets(config: &Config) -> Result<(), String> {
+    let mut bundle = load_secret_bundle();
+    for ns in &config.servicebus_namespaces {
+        bundle.insert(servicebus_secret_key(&ns.name), ns.connection_string.clone());
+    }
+    save_secret_bundle(&bundle)
+}
+
+fn strip_servicebus_secrets(value: &mut serde_json::Value) {
+    if let Some(namespaces) = value.get_mut("servicebus_namespaces").and_then(|v| v.as_array_mut()) {
+        for ns in namespaces.iter_mut() {
+            if let Some(obj) = ns.as_object_mut() {
+                obj.remove("connection_string");
+            }
+        }
+    }
+}
+
 fn items_path(app: &AppHandle) -> PathBuf {
     app.path()
         .app_data_dir()
@@ -362,12 +406,14 @@ fn load_config(app: &AppHandle) -> Config {
     let mut config: Config = serde_json::from_value(value).unwrap_or_default();
     hydrate_secrets(&mut config, &bundle);
     hydrate_monitoring_secrets(&mut config, &bundle);
+    hydrate_servicebus_secrets(&mut config, &bundle);
     config
 }
 
 fn write_config(app: &AppHandle, config: &Config) -> Result<(), String> {
     persist_secrets(config)?;
     persist_monitoring_secrets(config)?;
+    persist_servicebus_secrets(config)?;
     let path = config_path(app);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).ok();
@@ -380,6 +426,7 @@ fn write_config(app: &AppHandle, config: &Config) -> Result<(), String> {
         }
     }
     strip_monitoring_secrets(&mut value);
+    strip_servicebus_secrets(&mut value);
     let json = serde_json::to_string_pretty(&value).expect("serialization failed");
     fs::write(&path, json).map_err(|e| e.to_string())
 }
