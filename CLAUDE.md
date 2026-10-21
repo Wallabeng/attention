@@ -115,7 +115,7 @@ attention/
 │   │   │   ├── servicebus/                      # Azure Service Bus tab
 │   │   │   │   ├── servicebus.component.*
 │   │   │   │   ├── servicebus-namespace.model.ts
-│   │   │   │   ├── servicebus-entity-picker-dialog.component.ts  # Settings' "Entities…" picker
+│   │   │   │   ├── servicebus-namespace-dialog.component.ts  # Settings' per-namespace dialog: coordinates + entity picker
 │   │   │   │   └── servicebus-api.util.ts       # ARM client: list entities, fetch message counts
 │   │   │   ├── docker/                          # Docker orchestration tab
 │   │   │   │   ├── docker.component.*
@@ -488,7 +488,10 @@ button. Independent of the `Item`/`SyncProvider` model.
   shell, so a GUI-launched app finds `az`; last stdout line = token). The user needs the `Reader` role on the
   namespace and must have run `az login`. Requests go through `http_request` as ARM (`management.azure.com`) calls.
 - **Config**: each namespace is `{name, subscription_id, resource_group, namespace, entities[]}`; Settings' "Service
-  Bus" section edits them. "Entities (N)" opens `ServiceBusEntityPickerDialogComponent`, which loads lazily to keep Azure
+  Bus" section lists them inline with just the display name and a "Configure…"/"N entities" button, which opens
+  `ServiceBusNamespaceDialogComponent`: subscription ID, resource group and namespace fields at the top (changing one
+  discards the picker state and selection, since they belong to the old namespace) and the entity picker below, which
+  loads lazily to keep Azure
   calls minimal: nothing is fetched until the user picks "Queues" or "Topics" (`listQueues` / `listTopics`, one
   paged list call, cached per kind), and a topic's subscriptions (`listSubscriptions`) are fetched only when that
   topic is expanded. Selections persist across kinds and expansions.

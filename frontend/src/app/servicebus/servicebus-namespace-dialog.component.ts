@@ -15,21 +15,38 @@ import {ServiceBusNamespace} from './servicebus-namespace.model';
 type EntityKind = 'queues' | 'topics';
 
 /**
- * Loads lazily to keep Azure calls minimal: nothing is fetched until a kind is chosen, then one
+ * Edits one namespace's Azure coordinates and picks its entities. Closes with the updated
+ * namespace. Changing a coordinate discards the picker state and selection, as they belong to
+ * the old namespace. Entities load lazily to keep Azure calls minimal: nothing is fetched until a kind is chosen, then one
  * list call for that kind, and a topic's subscriptions only when that topic is expanded.
  */
 @Component({
-  selector: 'app-servicebus-entity-picker-dialog',
+  selector: 'app-servicebus-namespace-dialog',
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatButtonToggleModule, MatCheckboxModule, MatDialogModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule],
   template: `
-    <h2 mat-dialog-title>Select entities — {{ data.ns.name }}</h2>
+    <h2 mat-dialog-title>Namespace — {{ ns.name || 'new' }}</h2>
     <mat-dialog-content>
-      <mat-button-toggle-group [value]="kind()" (change)="selectKind($event.value)" aria-label="Entity type">
+      <mat-form-field appearance="outline" class="field">
+        <mat-label>Subscription ID</mat-label>
+        <input matInput [(ngModel)]="ns.subscription_id" (ngModelChange)="coordinatesChanged()"/>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="field">
+        <mat-label>Resource group</mat-label>
+        <input matInput [(ngModel)]="ns.resource_group" (ngModelChange)="coordinatesChanged()"/>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="field">
+        <mat-label>Namespace</mat-label>
+        <input matInput [(ngModel)]="ns.namespace" (ngModelChange)="coordinatesChanged()" placeholder="my-namespace"/>
+      </mat-form-field>
+      <h3>Entities</h3>
+      <mat-button-toggle-group [value]="kind()" [disabled]="!ready()" (change)="selectKind($event.value)" aria-label="Entity type">
         <mat-button-toggle value="queues">Queues</mat-button-toggle>
         <mat-button-toggle value="topics">Topics</mat-button-toggle>
       </mat-button-toggle-group>
-      @if (!kind()) {
+      @if (!ready()) {
+        <p class="hint">Fill in the three fields above to browse entities.</p>
+      } @else if (!kind()) {
         <p class="hint">Choose queues or topics to load them.</p>
       } @else if (loading()) {
         <mat-spinner diameter="32"></mat-spinner>
@@ -76,10 +93,12 @@ type EntityKind = 'queues' | 'topics';
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancel</button>
-      <button mat-flat-button color="primary" (click)="confirm()">Select ({{ selected().size }})</button>
+      <button mat-flat-button color="primary" (click)="confirm()">Save ({{ selected().size }} entities)</button>
     </mat-dialog-actions>
   `,
   styles: [`
+    .field { width: 100%; }
+    h3 { margin: 8px 0 4px; }
     .filter { width: 100%; margin: 12px 0 8px; }
     .entity { display: flex; align-items: center; }
     .indent { margin-left: 48px; }
@@ -88,9 +107,11 @@ type EntityKind = 'queues' | 'topics';
     mat-button-toggle-group { margin-top: 4px; }
   `],
 })
-export class ServiceBusEntityPickerDialogComponent {
+export class ServiceBusNamespaceDialogComponent {
   data = inject<{ ns: ServiceBusNamespace }>(MAT_DIALOG_DATA);
-  private dialogRef = inject(MatDialogRef<ServiceBusEntityPickerDialogComponent, string[]>);
+  private dialogRef = inject(MatDialogRef<ServiceBusNamespaceDialogComponent, ServiceBusNamespace>);
+  /** Working copy; only handed back on Save. */
+  ns: ServiceBusNamespace = {...this.data.ns};
   private shell = inject(ShellService);
   private token: string | null = null;
 
@@ -105,7 +126,7 @@ export class ServiceBusEntityPickerDialogComponent {
   subscriptions = signal<Record<string, ServiceBusEntityRef[]>>({});
   subscriptionsLoading = signal(new Set<string>());
   subscriptionErrors = signal<Record<string, string>>({});
-  selected = signal(new Set<string>(this.data.ns.entities));
+  selected = signal(new Set<string>(this.ns.entities));
 
   visible = computed(() => {
     const needle = this.filter().trim().toLowerCase();
@@ -114,6 +135,25 @@ export class ServiceBusEntityPickerDialogComponent {
 
   private http = (url: string, method: string, headers: [string, string][], body: string | null) =>
     this.shell.httpRequest(url, method, headers, body);
+
+  ready = signal(this.isReady());
+
+  private isReady(): boolean {
+    return !!(this.ns.subscription_id.trim() && this.ns.resource_group.trim() && this.ns.namespace.trim());
+  }
+
+  coordinatesChanged(): void {
+    this.token = null;
+    this.loaded = {};
+    this.kind.set(null);
+    this.entities.set([]);
+    this.error.set(null);
+    this.expanded.set(new Set());
+    this.subscriptions.set({});
+    this.subscriptionErrors.set({});
+    this.selected.set(new Set());
+    this.ready.set(this.isReady());
+  }
 
   private async getToken(): Promise<string> {
     return this.token ??= await this.shell.azureAccessToken();
@@ -133,8 +173,8 @@ export class ServiceBusEntityPickerDialogComponent {
     try {
       const token = await this.getToken();
       const list = kind === 'queues'
-        ? await listQueues(this.http, token, this.data.ns)
-        : await listTopics(this.http, token, this.data.ns);
+        ? await listQueues(this.http, token, this.ns)
+        : await listTopics(this.http, token, this.ns);
       this.loaded[kind] = list;
       if (this.kind() === kind) this.entities.set(list);
     } catch (e) {
@@ -182,6 +222,12 @@ export class ServiceBusEntityPickerDialogComponent {
   }
 
   confirm(): void {
-    this.dialogRef.close([...this.selected()].sort());
+    this.dialogRef.close({
+      ...this.ns,
+      subscription_id: this.ns.subscription_id.trim(),
+      resource_group: this.ns.resource_group.trim(),
+      namespace: this.ns.namespace.trim(),
+      entities: [...this.selected()].sort(),
+    });
   }
 }
