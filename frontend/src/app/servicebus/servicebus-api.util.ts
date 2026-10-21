@@ -1,11 +1,5 @@
 import {ServiceBusNamespace} from './servicebus-namespace.model';
 
-export interface ParsedConnectionString {
-  host: string;
-  keyName: string;
-  key: string;
-}
-
 export interface ServiceBusEntityRow {
   namespace: string;
   type: 'queue' | 'topic' | 'subscription';
@@ -18,105 +12,111 @@ export interface ServiceBusEntityRow {
   total: number;
 }
 
-const API_VERSION = '2017-04';
-const PAGE_SIZE = 100;
-
-/** Splits on the first `=` only — SharedAccessKey values are base64 and end in `=`. */
-export function parseConnectionString(connectionString: string): ParsedConnectionString {
-  const parts = new Map<string, string>();
-  for (const segment of connectionString.split(';')) {
-    const index = segment.indexOf('=');
-    if (index > 0) parts.set(segment.slice(0, index).trim().toLowerCase(), segment.slice(index + 1).trim());
-  }
-  const endpoint = parts.get('endpoint');
-  const keyName = parts.get('sharedaccesskeyname');
-  const key = parts.get('sharedaccesskey');
-  if (!endpoint || !keyName || !key) {
-    throw new Error('Connection string needs Endpoint, SharedAccessKeyName and SharedAccessKey');
-  }
-  const host = endpoint.replace(/^sb:\/\//i, '').replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
-  return {host, keyName, key};
-}
-
-function toBase64(bytes: ArrayBuffer): string {
-  let binary = '';
-  for (const b of new Uint8Array(bytes)) binary += String.fromCharCode(b);
-  return btoa(binary);
-}
-
-/** SAS token for the namespace, valid for one hour. Needs a key with the `Manage` claim. */
-export async function buildSasToken(conn: ParsedConnectionString, nowMs = Date.now()): Promise<string> {
-  const resource = encodeURIComponent(`https://${conn.host}/`);
-  const expiry = Math.floor(nowMs / 1000) + 3600;
-  const data = new TextEncoder().encode(`${resource}\n${expiry}`);
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(conn.key), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
-  const signature = encodeURIComponent(toBase64(await crypto.subtle.sign('HMAC', cryptoKey, data)));
-  return `SharedAccessSignature sr=${resource}&sig=${signature}&se=${expiry}&skn=${encodeURIComponent(conn.keyName)}`;
-}
-
-interface FeedEntry {
-  title: string;
-  counts: { active: number; deadLetter: number; scheduled: number; transfer: number; total: number };
-}
-
-function childText(parent: Element, localName: string): string | null {
-  for (const el of Array.from(parent.getElementsByTagName('*'))) {
-    if (el.localName === localName) return el.textContent;
-  }
-  return null;
-}
-
-function num(parent: Element, localName: string): number {
-  return Number(childText(parent, localName) ?? 0) || 0;
-}
-
-export function parseFeed(xml: string): FeedEntry[] {
-  const doc = new DOMParser().parseFromString(xml, 'application/xml');
-  if (doc.getElementsByTagName('parsererror').length > 0) throw new Error('Unparseable Service Bus response');
-  return Array.from(doc.getElementsByTagName('entry')).map(entry => {
-    const title = entry.getElementsByTagName('title')[0]?.textContent ?? '';
-    const active = num(entry, 'ActiveMessageCount');
-    const deadLetter = num(entry, 'DeadLetterMessageCount');
-    const scheduled = num(entry, 'ScheduledMessageCount');
-    const transfer = num(entry, 'TransferMessageCount') + num(entry, 'TransferDeadLetterMessageCount');
-    return {title, counts: {active, deadLetter, scheduled, transfer, total: active + deadLetter + scheduled + transfer}};
-  });
+export interface ServiceBusEntityRef {
+  /** ARM sub-path, e.g. `topics/events/subscriptions/billing`. */
+  path: string;
+  type: ServiceBusEntityRow['type'];
+  label: string;
 }
 
 type Http = (url: string, method: string, headers: [string, string][], body: string | null) => Promise<string>;
 
-async function fetchAll(http: Http, host: string, token: string, path: string): Promise<FeedEntry[]> {
-  const entries: FeedEntry[] = [];
-  for (let skip = 0; ; skip += PAGE_SIZE) {
-    const url = `https://${host}/${path}?api-version=${API_VERSION}&$skip=${skip}&$top=${PAGE_SIZE}`;
-    const page = parseFeed(await http(url, 'GET', [['Authorization', token]], null));
-    entries.push(...page);
-    if (page.length < PAGE_SIZE) return entries;
-  }
+const ARM = 'https://management.azure.com';
+const API_VERSION = '2021-11-01';
+
+interface ArmEntity {
+  name: string;
+  properties?: {
+    countDetails?: {
+      activeMessageCount?: number;
+      deadLetterMessageCount?: number;
+      scheduledMessageCount?: number;
+      transferMessageCount?: number;
+      transferDeadLetterMessageCount?: number;
+    };
+  };
 }
 
-/** Every queue, topic and subscription of one namespace with their message counts. */
-export async function fetchNamespaceRows(
-  http: Http, namespace: ServiceBusNamespace,
-): Promise<ServiceBusEntityRow[]> {
-  const conn = parseConnectionString(namespace.connection_string);
-  const token = await buildSasToken(conn);
-  const rows: ServiceBusEntityRow[] = [];
-  const row = (type: ServiceBusEntityRow['type'], name: string, c: FeedEntry['counts']): ServiceBusEntityRow =>
-    ({namespace: namespace.name, type, name, ...c});
+interface ArmList {
+  value: ArmEntity[];
+  nextLink?: string;
+}
 
-  for (const q of await fetchAll(http, conn.host, token, '$Resources/Queues')) {
-    rows.push(row('queue', q.title, q.counts));
+function namespaceBase(ns: ServiceBusNamespace): string {
+  return `${ARM}/subscriptions/${encodeURIComponent(ns.subscription_id)}`
+    + `/resourceGroups/${encodeURIComponent(ns.resource_group)}`
+    + `/providers/Microsoft.ServiceBus/namespaces/${encodeURIComponent(ns.namespace)}`;
+}
+
+async function armGet<T>(http: Http, token: string, url: string): Promise<T> {
+  return JSON.parse(await http(url, 'GET', [['Authorization', `Bearer ${token}`]], null)) as T;
+}
+
+async function armList(http: Http, token: string, url: string): Promise<ArmEntity[]> {
+  const entities: ArmEntity[] = [];
+  let next: string | undefined = `${url}?api-version=${API_VERSION}`;
+  while (next) {
+    const page: ArmList = await armGet<ArmList>(http, token, next);
+    entities.push(...page.value);
+    next = page.nextLink;
   }
-  const topics = await fetchAll(http, conn.host, token, '$Resources/Topics');
+  return entities;
+}
+
+/** Describes an entity path as a table row type and label. */
+export function describeEntityPath(path: string): Pick<ServiceBusEntityRef, 'type' | 'label'> {
+  const parts = path.split('/');
+  if (parts[0] === 'queues') return {type: 'queue', label: parts[1]};
+  if (parts.length === 2) return {type: 'topic', label: parts[1]};
+  return {type: 'subscription', label: `${parts[1]} / ${parts[3]}`};
+}
+
+/** Every queue, topic and subscription in a namespace, for the picker. */
+export async function listNamespaceEntities(
+  http: Http, token: string, ns: ServiceBusNamespace,
+): Promise<ServiceBusEntityRef[]> {
+  const base = namespaceBase(ns);
+  const [queues, topics] = await Promise.all([
+    armList(http, token, `${base}/queues`),
+    armList(http, token, `${base}/topics`),
+  ]);
   const subscriptions = await Promise.all(topics.map(async t =>
-    ({topic: t.title, subs: await fetchAll(http, conn.host, token, `${encodeURIComponent(t.title)}/subscriptions`)})));
-  for (const t of topics) {
-    rows.push(row('topic', t.title, t.counts));
-    for (const sub of subscriptions.find(s => s.topic === t.title)!.subs) {
-      rows.push(row('subscription', `${t.title} / ${sub.title}`, sub.counts));
-    }
-  }
-  return rows;
+    ({topic: t.name, subs: await armList(http, token, `${base}/topics/${encodeURIComponent(t.name)}/subscriptions`)})));
+  const paths = [
+    ...queues.map(q => `queues/${q.name}`),
+    ...topics.flatMap(t => [
+      `topics/${t.name}`,
+      ...subscriptions.find(s => s.topic === t.name)!.subs.map(s => `topics/${t.name}/subscriptions/${s.name}`),
+    ]),
+  ];
+  return paths.map(path => ({path, ...describeEntityPath(path)}));
+}
+
+/** Rows for the namespace's selected entities; one entity failing doesn't hide the others. */
+export async function fetchNamespaceRows(
+  http: Http, token: string, ns: ServiceBusNamespace,
+): Promise<{ rows: ServiceBusEntityRow[]; errors: string[] }> {
+  const base = namespaceBase(ns);
+  const results = await Promise.allSettled(ns.entities.map(async path => {
+    const encoded = path.split('/').map(encodeURIComponent).join('/');
+    const entity = await armGet<ArmEntity>(http, token, `${base}/${encoded}?api-version=${API_VERSION}`);
+    const c = entity.properties?.countDetails ?? {};
+    const active = c.activeMessageCount ?? 0;
+    const deadLetter = c.deadLetterMessageCount ?? 0;
+    const scheduled = c.scheduledMessageCount ?? 0;
+    const transfer = (c.transferMessageCount ?? 0) + (c.transferDeadLetterMessageCount ?? 0);
+    const {type, label} = describeEntityPath(path);
+    const row: ServiceBusEntityRow = {
+      namespace: ns.name, type, name: label, active, deadLetter, scheduled, transfer,
+      total: active + deadLetter + scheduled + transfer,
+    };
+    return row;
+  }));
+  const rows: ServiceBusEntityRow[] = [];
+  const errors: string[] = [];
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') rows.push(r.value);
+    else errors.push(`${ns.name} / ${ns.entities[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+  });
+  return {rows, errors};
 }

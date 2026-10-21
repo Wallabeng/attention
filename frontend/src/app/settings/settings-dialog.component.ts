@@ -1,7 +1,7 @@
 import {Component, inject, OnInit, signal} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
-import {MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
@@ -9,6 +9,7 @@ import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {MatSnackBar, MatSnackBarModule} from '@angular/material/snack-bar';
 import {ConfigService} from '../config.service';
+import {ServiceBusEntityPickerDialogComponent} from '../servicebus/servicebus-entity-picker-dialog.component';
 import {ServiceBusNamespace} from '../servicebus/servicebus-namespace.model';
 import {ShellService} from '../shell.service';
 import {SYNC_PROVIDERS} from '../syncs/sync-providers.token';
@@ -81,11 +82,23 @@ import {SettingsSection} from '../syncs/sync-provider';
             <mat-label>Name</mat-label>
             <input matInput [(ngModel)]="ns.name" placeholder="prod"/>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="namespace-conn">
-            <mat-label>Connection string</mat-label>
-            <input matInput type="password" [(ngModel)]="ns.connection_string"
-                   placeholder="Endpoint=sb://...;SharedAccessKeyName=...;SharedAccessKey=..."/>
+          <mat-form-field appearance="outline" class="namespace-field">
+            <mat-label>Subscription ID</mat-label>
+            <input matInput [(ngModel)]="ns.subscription_id"/>
           </mat-form-field>
+          <mat-form-field appearance="outline" class="namespace-field">
+            <mat-label>Resource group</mat-label>
+            <input matInput [(ngModel)]="ns.resource_group"/>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="namespace-field">
+            <mat-label>Namespace</mat-label>
+            <input matInput [(ngModel)]="ns.namespace" placeholder="my-namespace"/>
+          </mat-form-field>
+          <button mat-stroked-button type="button" class="namespace-select"
+                  [disabled]="!ns.subscription_id.trim() || !ns.resource_group.trim() || !ns.namespace.trim()"
+                  (click)="selectEntities(ns)">
+            Entities ({{ ns.entities.length }})
+          </button>
           <button mat-icon-button type="button" (click)="removeNamespace($index)" aria-label="Remove namespace">
             <mat-icon>delete</mat-icon>
           </button>
@@ -94,7 +107,7 @@ import {SettingsSection} from '../syncs/sync-provider';
       <div>
         <button mat-button type="button" (click)="addNamespace()"><mat-icon>add</mat-icon> Add namespace</button>
       </div>
-      <mat-hint class="checkbox-hint">The key needs the Manage claim to read message counts. All namespaces are shown together in the Service Bus tab.</mat-hint>
+      <mat-hint class="checkbox-hint">Uses your <code>az login</code> session; the Reader role on the namespace is enough. Only the selected entities are shown in the Service Bus tab.</mat-hint>
       <h3 class="section-label">Application</h3>
       <mat-slide-toggle
         [checked]="autostart()"
@@ -129,8 +142,13 @@ import {SettingsSection} from '../syncs/sync-provider';
       flex: 0 0 160px;
     }
 
-    .namespace-conn {
+    .namespace-field {
       flex: 1;
+    }
+
+    .namespace-select {
+      margin-top: 8px;
+      white-space: nowrap;
     }
 
     .checkbox-field {
@@ -159,6 +177,7 @@ export class SettingsDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<SettingsDialogComponent>);
   private providers = inject(SYNC_PROVIDERS);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
 
   async ngOnInit(): Promise<void> {
     this.sections = this.providers
@@ -181,7 +200,7 @@ export class SettingsDialogComponent implements OnInit {
     }
     this.dockerComposePath = cfg.docker_compose_path ?? '';
     this.pullStartCommand = cfg.pull_start_command ?? '';
-    this.servicebusNamespaces = (cfg.servicebus_namespaces ?? []).map(ns => ({...ns}));
+    this.servicebusNamespaces = (cfg.servicebus_namespaces ?? []).map(ns => ({...ns, entities: [...ns.entities]}));
 
     this.autostart.set(await this.shell.isAutostartEnabled());
   }
@@ -193,7 +212,17 @@ export class SettingsDialogComponent implements OnInit {
   }
 
   addNamespace(): void {
-    this.servicebusNamespaces.push({name: '', connection_string: ''});
+    this.servicebusNamespaces.push({name: '', subscription_id: '', resource_group: '', namespace: '', entities: []});
+  }
+
+  selectEntities(ns: ServiceBusNamespace): void {
+    this.dialog
+      .open<ServiceBusEntityPickerDialogComponent, { ns: ServiceBusNamespace }, string[]>(
+        ServiceBusEntityPickerDialogComponent, {data: {ns}, width: '480px'})
+      .afterClosed()
+      .subscribe(selected => {
+        if (selected) ns.entities = selected;
+      });
   }
 
   removeNamespace(index: number): void {
@@ -220,8 +249,14 @@ export class SettingsDialogComponent implements OnInit {
     update.docker_compose_path = this.dockerComposePath.trim() || null;
     update.pull_start_command = this.pullStartCommand.trim() || null;
     update.servicebus_namespaces = this.servicebusNamespaces
-      .map(ns => ({name: ns.name.trim(), connection_string: ns.connection_string.trim()}))
-      .filter(ns => ns.name && ns.connection_string);
+      .map(ns => ({
+        ...ns,
+        name: ns.name.trim(),
+        subscription_id: ns.subscription_id.trim(),
+        resource_group: ns.resource_group.trim(),
+        namespace: ns.namespace.trim(),
+      }))
+      .filter(ns => ns.name && ns.subscription_id && ns.resource_group && ns.namespace);
     try {
       await this.config.set(update);
     } catch (e) {

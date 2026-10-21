@@ -36,6 +36,7 @@
     "allow-docker-pull-start",
     "allow-docker-service-logs-start",
     "allow-docker-service-logs-stop",
+    "allow-azure-access-token",
     "updater:default",
     "dialog:allow-message",
     "dialog:allow-ask"

@@ -27,6 +27,7 @@ fn main() {
         "docker_pull_start",
         "docker_service_logs_start",
         "docker_service_logs_stop",
+        "azure_access_token",
       ]),
     ),
   )

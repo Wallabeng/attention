@@ -1,49 +1,65 @@
-import {buildSasToken, fetchNamespaceRows, parseConnectionString, parseFeed} from './servicebus-api.util';
+import {describeEntityPath, fetchNamespaceRows, listNamespaceEntities} from './servicebus-api.util';
+import {ServiceBusNamespace} from './servicebus-namespace.model';
 
-const CONN = 'Endpoint=sb://my-ns.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=abc+def=';
+const NS: ServiceBusNamespace = {
+  name: 'prod', subscription_id: 'sub1', resource_group: 'rg1', namespace: 'my-ns', entities: [],
+};
+const BASE = 'https://management.azure.com/subscriptions/sub1/resourceGroups/rg1/providers/Microsoft.ServiceBus/namespaces/my-ns';
 
-function feed(entries: { title: string; active: number; dead: number }[]): string {
-  return `<feed xmlns="http://www.w3.org/2005/Atom">${entries.map(e => `<entry><title>${e.title}</title><content>
-    <QueueDescription xmlns:d2p1="http://schemas.microsoft.com/netservices/2011/06/servicebus"><d2p1:CountDetails>
-    <d2p1:ActiveMessageCount>${e.active}</d2p1:ActiveMessageCount><d2p1:DeadLetterMessageCount>${e.dead}</d2p1:DeadLetterMessageCount>
-    <d2p1:ScheduledMessageCount>0</d2p1:ScheduledMessageCount><d2p1:TransferMessageCount>0</d2p1:TransferMessageCount>
-    <d2p1:TransferDeadLetterMessageCount>0</d2p1:TransferDeadLetterMessageCount></d2p1:CountDetails></QueueDescription>
-    </content></entry>`).join('')}</feed>`;
+function counts(active: number, dead: number) {
+  return JSON.stringify({
+    name: 'x', properties: {countDetails: {
+      activeMessageCount: active, deadLetterMessageCount: dead, scheduledMessageCount: 0,
+      transferMessageCount: 0, transferDeadLetterMessageCount: 0,
+    }},
+  });
 }
 
 describe('servicebus-api.util', () => {
-  it('parses a connection string, keeping = inside the key', () => {
-    expect(parseConnectionString(CONN)).toEqual({
-      host: 'my-ns.servicebus.windows.net', keyName: 'RootManageSharedAccessKey', key: 'abc+def=',
-    });
+  it('describes entity paths', () => {
+    expect(describeEntityPath('queues/q1')).toEqual({type: 'queue', label: 'q1'});
+    expect(describeEntityPath('topics/t1')).toEqual({type: 'topic', label: 't1'});
+    expect(describeEntityPath('topics/t1/subscriptions/s1')).toEqual({type: 'subscription', label: 't1 / s1'});
   });
 
-  it('rejects an incomplete connection string', () => {
-    expect(() => parseConnectionString('Endpoint=sb://x/')).toThrow();
+  it('fetches only the selected entities, with a bearer token', async () => {
+    const urls: string[] = [];
+    const http = async (url: string, _m: string, headers: [string, string][]) => {
+      urls.push(url);
+      expect(headers).toEqual([['Authorization', 'Bearer tok']]);
+      return counts(4, 1);
+    };
+    const {rows, errors} = await fetchNamespaceRows(http, 'tok', {...NS, entities: ['queues/q1', 'topics/t1/subscriptions/s1']});
+    expect(urls).toEqual([
+      `${BASE}/queues/q1?api-version=2021-11-01`,
+      `${BASE}/topics/t1/subscriptions/s1?api-version=2021-11-01`,
+    ]);
+    expect(errors).toEqual([]);
+    expect(rows.map(r => [r.namespace, r.type, r.name, r.active, r.deadLetter, r.total]))
+      .toEqual([['prod', 'queue', 'q1', 4, 1, 5], ['prod', 'subscription', 't1 / s1', 4, 1, 5]]);
   });
 
-  it('builds a SAS token', async () => {
-    const token = await buildSasToken(parseConnectionString(CONN), 0);
-    expect(token).toMatch(/^SharedAccessSignature sr=https%3A%2F%2Fmy-ns\.servicebus\.windows\.net%2F&sig=.+&se=3600&skn=RootManageSharedAccessKey$/);
-  });
-
-  it('parses message counts from a feed', () => {
-    const [entry] = parseFeed(feed([{title: 'orders', active: 3, dead: 2}]));
-    expect(entry.title).toBe('orders');
-    expect(entry.counts).toEqual({active: 3, deadLetter: 2, scheduled: 0, transfer: 0, total: 5});
-  });
-
-  it('collects queues, topics and subscriptions', async () => {
+  it('reports a failing entity without hiding the others', async () => {
     const http = async (url: string) => {
-      if (url.includes('$Resources/Queues')) return feed([{title: 'q1', active: 1, dead: 0}]);
-      if (url.includes('$Resources/Topics')) return feed([{title: 't1', active: 0, dead: 0}]);
-      if (url.includes('/t1/subscriptions')) return feed([{title: 's1', active: 4, dead: 1}]);
+      if (url.includes('/queues/gone')) throw new Error('404');
+      return counts(1, 0);
+    };
+    const {rows, errors} = await fetchNamespaceRows(http, 'tok', {...NS, entities: ['queues/gone', 'queues/ok']});
+    expect(rows.map(r => r.name)).toEqual(['ok']);
+    expect(errors).toEqual(['prod / queues/gone: 404']);
+  });
+
+  it('lists queues, topics and subscriptions, following nextLink', async () => {
+    const http = async (url: string) => {
+      if (url === `${BASE}/queues?api-version=2021-11-01`) {
+        return JSON.stringify({value: [{name: 'q1'}], nextLink: 'https://next/queues'});
+      }
+      if (url === 'https://next/queues') return JSON.stringify({value: [{name: 'q2'}]});
+      if (url.includes('/topics?')) return JSON.stringify({value: [{name: 't1'}]});
+      if (url.includes('/topics/t1/subscriptions?')) return JSON.stringify({value: [{name: 's1'}]});
       throw new Error(url);
     };
-    const rows = await fetchNamespaceRows(http, {name: 'prod', connection_string: CONN});
-    expect(rows.map(r => [r.type, r.name, r.total])).toEqual([
-      ['queue', 'q1', 1], ['topic', 't1', 0], ['subscription', 't1 / s1', 5],
-    ]);
-    expect(rows.every(r => r.namespace === 'prod')).toBeTrue();
+    const entities = await listNamespaceEntities(http, 'tok', NS);
+    expect(entities.map(e => e.path)).toEqual(['queues/q1', 'queues/q2', 'topics/t1', 'topics/t1/subscriptions/s1']);
   });
 });

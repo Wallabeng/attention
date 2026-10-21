@@ -185,19 +185,24 @@ pub struct Config {
     /// listed ahead of all others, regardless of state.
     #[serde(default)]
     pub docker_favorite_services: Vec<String>,
-    /// Azure Service Bus namespaces shown in the Service Bus tab. Each one's connection
-    /// string is a keychain secret, stripped from config.json like monitoring passwords.
+    /// Azure Service Bus namespaces (and the entities to watch in each) shown in the
+    /// Service Bus tab. Contains no secrets: access is via the `az` CLI's Azure AD token.
     #[serde(default)]
     pub servicebus_namespaces: Vec<ServiceBusNamespace>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ServiceBusNamespace {
+    /// Display name in the table.
     pub name: String,
-    /// Full `Endpoint=sb://...;SharedAccessKeyName=...;SharedAccessKey=...` string.
-    /// Keychain-backed; never written to config.json.
+    pub subscription_id: String,
+    pub resource_group: String,
+    /// Service Bus namespace resource name (not the full host name).
+    pub namespace: String,
+    /// Entities to show, as ARM sub-paths: `queues/{q}`, `topics/{t}` or
+    /// `topics/{t}/subscriptions/{s}`.
     #[serde(default)]
-    pub connection_string: String,
+    pub entities: Vec<String>,
 }
 
 /// Service name under which all credentials are namespaced in the OS keychain.
@@ -323,37 +328,6 @@ fn strip_monitoring_secrets(value: &mut serde_json::Value) {
     }
 }
 
-/// Keychain key for a Service Bus namespace's connection string, namespaced by the
-/// display name. Like monitoring stages, renaming or removing a namespace orphans
-/// its old entry.
-fn servicebus_secret_key(name: &str) -> String {
-    format!("servicebus_connection_string::{name}")
-}
-
-fn hydrate_servicebus_secrets(config: &mut Config, bundle: &HashMap<String, String>) {
-    for ns in &mut config.servicebus_namespaces {
-        ns.connection_string = bundle.get(&servicebus_secret_key(&ns.name)).cloned().unwrap_or_default();
-    }
-}
-
-fn persist_servicebus_secrets(config: &Config) -> Result<(), String> {
-    let mut bundle = load_secret_bundle();
-    for ns in &config.servicebus_namespaces {
-        bundle.insert(servicebus_secret_key(&ns.name), ns.connection_string.clone());
-    }
-    save_secret_bundle(&bundle)
-}
-
-fn strip_servicebus_secrets(value: &mut serde_json::Value) {
-    if let Some(namespaces) = value.get_mut("servicebus_namespaces").and_then(|v| v.as_array_mut()) {
-        for ns in namespaces.iter_mut() {
-            if let Some(obj) = ns.as_object_mut() {
-                obj.remove("connection_string");
-            }
-        }
-    }
-}
-
 fn items_path(app: &AppHandle) -> PathBuf {
     app.path()
         .app_data_dir()
@@ -406,14 +380,12 @@ fn load_config(app: &AppHandle) -> Config {
     let mut config: Config = serde_json::from_value(value).unwrap_or_default();
     hydrate_secrets(&mut config, &bundle);
     hydrate_monitoring_secrets(&mut config, &bundle);
-    hydrate_servicebus_secrets(&mut config, &bundle);
     config
 }
 
 fn write_config(app: &AppHandle, config: &Config) -> Result<(), String> {
     persist_secrets(config)?;
     persist_monitoring_secrets(config)?;
-    persist_servicebus_secrets(config)?;
     let path = config_path(app);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).ok();
@@ -426,7 +398,6 @@ fn write_config(app: &AppHandle, config: &Config) -> Result<(), String> {
         }
     }
     strip_monitoring_secrets(&mut value);
-    strip_servicebus_secrets(&mut value);
     let json = serde_json::to_string_pretty(&value).expect("serialization failed");
     fs::write(&path, json).map_err(|e| e.to_string())
 }
@@ -1368,4 +1339,27 @@ pub async fn docker_service_logs_stop(
         let _ = child.kill().await;
     }
     Ok(())
+}
+
+/// Azure AD access token for the ARM API, from the user's `az login` session. Run through
+/// the login shell (like the custom Pull & Start command) so a GUI-launched app finds `az`.
+/// The shell's rc files may print noise, so only the last stdout line is taken as the token.
+#[tauri::command]
+pub async fn azure_access_token() -> Result<String, String> {
+    let mut cmd = shell_command(
+        "az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv",
+    )?;
+    let output = cmd.output().await.map_err(|e| format!("could not run az: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let last = stderr.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("az failed");
+        return Err(format!("az account get-access-token failed (run `az login`?): {last}"));
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| "az returned no token".to_string())
 }

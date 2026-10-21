@@ -44,6 +44,6 @@
   {
     "id": "servicebus-tab",
     "title": "Service Bus tab",
-    "description": "A new tab after Docker lists every queue, topic and subscription of your Azure Service Bus namespaces with their message counts. Add namespaces by connection string in Settings."
+    "description": "A new tab after Docker shows message counts for the queues, topics and subscriptions you pick in Settings. It uses your az login with the Reader role, so no Service Bus keys are needed."
   }
 ]

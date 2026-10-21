@@ -55,14 +55,14 @@ export class ServiceBusComponent implements OnInit {
     this.loading.set(true);
     try {
       const namespaces = (await this.config.get()).servicebus_namespaces ?? [];
-      this.configured.set(namespaces.length > 0);
       const http = (url: string, method: string, headers: [string, string][], body: string | null) =>
         this.shell.httpRequest(url, method, headers, body);
-      const results = await Promise.allSettled(namespaces.map(ns => fetchNamespaceRows(http, ns)));
-      this.rows.set(results.flatMap(r => r.status === 'fulfilled' ? r.value : []));
-      this.errors.set(results.flatMap((r, i) => r.status === 'rejected'
-        ? [`${namespaces[i].name}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`]
-        : []));
+      const withEntities = namespaces.filter(ns => ns.entities.length > 0);
+      this.configured.set(withEntities.length > 0);
+      const token = withEntities.length > 0 ? await this.shell.azureAccessToken() : '';
+      const results = await Promise.all(withEntities.map(ns => fetchNamespaceRows(http, token, ns)));
+      this.rows.set(results.flatMap(r => r.rows));
+      this.errors.set(results.flatMap(r => r.errors));
     } catch (e) {
       this.errors.set([e instanceof Error ? e.message : String(e)]);
     } finally {

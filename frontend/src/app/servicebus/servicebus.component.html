@@ -2,7 +2,7 @@
   @if (!configured() && !loading()) {
     <div class="empty-state">
       <mat-icon>info</mat-icon>
-      <p>No Service Bus namespaces configured. Add a connection string in Settings to see queues and topics here.</p>
+      <p>No Service Bus entities selected. Add a namespace in Settings and pick the queues, topics and subscriptions to watch.</p>
     </div>
   } @else {
     <div class="servicebus-toolbar">

@@ -61,8 +61,8 @@ noted TODOs. The cognitive overhead of remembering _where_ to look is the proble
   any service's state or health changes between polls (e.g. a crash or a recovery) — see
   [Docker Orchestration](#docker-orchestration).
 - **Azure Service Bus**: separate tab after Docker showing one flat, sortable, filterable table of every queue, topic and
-  subscription (with active / dead-letter / scheduled / transfer / total message counts) across all configured
-  namespaces at once — see [Azure Service Bus](#azure-service-bus).
+  subscription (with active / dead-letter / scheduled / transfer / total message counts) the user explicitly selected,
+  across all configured namespaces at once — see [Azure Service Bus](#azure-service-bus).
 
 ## Stack
 
@@ -115,7 +115,8 @@ attention/
 │   │   │   ├── servicebus/                      # Azure Service Bus tab
 │   │   │   │   ├── servicebus.component.*
 │   │   │   │   ├── servicebus-namespace.model.ts
-│   │   │   │   └── servicebus-api.util.ts       # Connection-string parsing, SAS token, ATOM feed parsing, row collection
+│   │   │   │   ├── servicebus-entity-picker-dialog.component.ts  # Settings' "Entities…" picker
+│   │   │   │   └── servicebus-api.util.ts       # ARM client: list entities, fetch message counts
 │   │   │   ├── docker/                          # Docker orchestration tab
 │   │   │   │   ├── docker.component.*
 │   │   │   │   ├── docker-service-status.model.ts
@@ -199,6 +200,7 @@ in the app manifest in `src-tauri/build.rs` and allowed (`allow-<name-with-dashe
 | `docker_pull_start`     | `compose_path, service, command_template, operation_id`                  | `Result<(), String>` — default: `docker compose pull` then `docker compose up -d` for `service`; if `command_template` is non-empty, substitutes `{service}`/`{compose_path}` into it and runs that through a shell instead; either way streamed as `docker://output` events tagged with `operation_id` |
 | `docker_service_logs_start` | `compose_path, service, operation_id`                                 | `Result<(), String>` — spawns `docker compose logs --tail 200 -f <service>` detached, streaming it as `docker://output` events tagged with `operation_id`; returns as soon as the process is spawned rather than waiting for it to exit |
 | `docker_service_logs_stop`  | `operation_id: String`                                                | `Result<(), String>` — kills the tracked log-follow child for `operation_id`, if still running; a no-op if it already exited or the id is unknown |
+| `azure_access_token`        | —                                                                     | `Result<String, String>` — runs `az account get-access-token` for the ARM resource via the login shell; used by the Service Bus tab |
 
 `set_badge_count` updates the window title (`Attention (N)` or plain `Attention`), the OS dock/taskbar badge via
 `WebviewWindow::set_badge_count`, and the tray tooltip. The count itself is computed in Angular (`ItemsService`) since
@@ -246,7 +248,7 @@ Stored in `{app_data_dir}/config.json`. Credential fields (marked **keychain**) 
 | `monitoring_hidden_columns` | Per grid-type hidden-column names (`Record<gridKey, string[]>`). Applies across every stage — hiding a column is a grid-schema-level preference, not a stage-level one. `tenantGroup` is never hidden.                                                                                                                |
 | `docker_compose_path`       | Path to a docker-compose.yaml on disk, edited in Settings. Read by the Docker tab; not a keychain secret.                                                                                                                                                                                                             |
 | `pull_start_command`        | Optional custom shell command template for the Docker tab's "Pull & Start" button, edited in Settings. `{service}` and `{compose_path}` are substituted before running through a shell. Empty/unset falls back to the default `docker compose pull` + `docker compose up -d` for that service. Not a keychain secret. |
-| `servicebus_namespaces`     | Azure Service Bus namespaces (`{name, connection_string}[]`), edited in Settings' "Service Bus" section. `connection_string` is a **keychain** secret, bundled per namespace as `servicebus_connection_string::{name}` and stripped from `config.json` (same scheme as monitoring stage passwords; renaming/removing a namespace orphans its old keychain entry). |
+| `servicebus_namespaces`     | Azure Service Bus namespaces (`{name, subscription_id, resource_group, namespace, entities[]}[]`), edited in Settings' "Service Bus" section. `entities` are ARM sub-paths (`queues/{q}`, `topics/{t}`, `topics/{t}/subscriptions/{s}`) picked via the "Entities…" dialog. No secrets — auth is the `az` CLI session. |
 | `docker_favorite_services`  | Service names starred as favorites in the Docker tab (`string[]`). Toggled inline from the tab itself, not the Settings dialog.                                                                                                                                                                                       |
 
 ## Tenant Group Monitoring
@@ -476,21 +478,23 @@ no settings toggle to disable it.
 
 ## Azure Service Bus
 
-A **Service Bus** tab (sibling after Docker via `AppComponent`'s `activeView` signal) shows one flat table of every
-queue, topic and subscription across all configured namespaces, with columns Namespace, Type, Name, Active,
-Dead-letter, Scheduled, Transfer, Total. Sortable, text-filterable, with a refresh button. Independent of the
-`Item`/`SyncProvider` model; no Rust commands of its own — it only uses `http_request`.
+A **Service Bus** tab (sibling after Docker via `AppComponent`'s `activeView` signal) shows one flat table of the
+queues, topics and subscriptions the user explicitly selected, across all configured namespaces, with columns
+Namespace, Type, Name, Active, Dead-letter, Scheduled, Transfer, Total. Sortable, text-filterable, with a refresh
+button. Independent of the `Item`/`SyncProvider` model.
 
-- **Auth**: per-namespace connection string (`Endpoint=sb://…;SharedAccessKeyName=…;SharedAccessKey=…`). The SAS key
-  needs the `Manage` claim, since counts come from the management (ATOM) endpoint. `buildSasToken` signs a 1-hour SAS
-  token with WebCrypto HMAC-SHA256.
-- **Data**: `fetchNamespaceRows` (`servicebus-api.util.ts`) pages (`$skip`/`$top=100`) through
-  `https://{host}/$Resources/Queues`, `$Resources/Topics` and `{topic}/subscriptions` (`api-version=2017-04`), parsing
-  `CountDetails` out of each Atom entry. Topic rows carry the topic's own counts (typically only scheduled);
-  subscription rows are named `topic / subscription`.
-- **Failure isolation**: namespaces load in parallel via `Promise.allSettled`; a failing namespace shows an error
-  banner while the others' rows still render.
-- Loaded on tab init and via the refresh button (no polling).
+- **Auth**: Azure AD via the `az` CLI, no stored secrets and no Service Bus `Manage` key. The `azure_access_token`
+  command runs `az account get-access-token --resource https://management.azure.com/` through `shell_command` (login
+  shell, so a GUI-launched app finds `az`; last stdout line = token). The user needs the `Reader` role on the
+  namespace and must have run `az login`. Requests go through `http_request` as ARM (`management.azure.com`) calls.
+- **Config**: each namespace is `{name, subscription_id, resource_group, namespace, entities[]}`; Settings' "Service
+  Bus" section edits them. "Entities (N)" opens `ServiceBusEntityPickerDialogComponent`, which lists the namespace's
+  queues, topics and subscriptions (`listNamespaceEntities`, follows `nextLink`) as checkboxes.
+- **Data**: `fetchNamespaceRows` (`servicebus-api.util.ts`) GETs each selected entity individually
+  (`.../queues/{q}`, `.../topics/{t}`, `.../topics/{t}/subscriptions/{s}`, `api-version=2021-11-01`) and reads
+  `properties.countDetails`. Subscription rows are named `topic / subscription`. A failing entity (e.g. deleted)
+  shows an error banner while the other rows still render. Namespaces without selected entities are skipped.
+- Loaded on tab init and via the refresh button (no polling). Requires the `az` CLI on the user's shell `PATH`.
 
 ## Dev Commands
 
