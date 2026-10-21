@@ -1,4 +1,5 @@
 import {SnoozeRule} from './snooze-rule.model';
+import {ServiceBusNamespace} from './servicebus/servicebus-namespace.model';
 import {MonitoringStage} from './monitoring/monitoring-stage.model';
 
 export interface Config {
@@ -35,4 +36,5 @@ export interface Config {
   docker_compose_path: string | null;
   pull_start_command: string | null;
   docker_favorite_services: string[];
+  servicebus_namespaces: ServiceBusNamespace[];
 }

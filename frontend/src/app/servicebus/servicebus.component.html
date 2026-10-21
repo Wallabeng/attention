@@ -1,0 +1,64 @@
+<div class="servicebus-container">
+  @if (!configured() && !loading()) {
+    <div class="empty-state">
+      <mat-icon>info</mat-icon>
+      <p>No Service Bus entities selected. Add a namespace in Settings and pick the queues, topics and subscriptions to watch.</p>
+    </div>
+  } @else {
+    <div class="servicebus-toolbar">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
+        <mat-label>Filter</mat-label>
+        <input matInput [ngModel]="filterText()" (ngModelChange)="filterText.set($event)"/>
+      </mat-form-field>
+      <span class="row-count">{{ visibleRows().length }} entities</span>
+      <span class="spacer"></span>
+      <button mat-icon-button (click)="refresh()" [disabled]="loading()" aria-label="Reload Service Bus">
+        <mat-icon [class.spinning]="loading()">refresh</mat-icon>
+      </button>
+    </div>
+    @for (error of errors(); track error) {
+      <p class="error-banner">{{ error }}</p>
+    }
+    <div class="table-wrapper">
+      <table mat-table [dataSource]="visibleRows()" matSort [matSortActive]="sort().active"
+             [matSortDirection]="sort().direction" (matSortChange)="sort.set($event)">
+        <ng-container matColumnDef="namespace">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Namespace</th>
+          <td mat-cell *matCellDef="let row">{{ row.namespace }}</td>
+        </ng-container>
+        <ng-container matColumnDef="type">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Type</th>
+          <td mat-cell *matCellDef="let row">{{ row.type }}</td>
+        </ng-container>
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+          <td mat-cell *matCellDef="let row">
+            <a [href]="row.portalUrl" (click)="openPortal($event, row.portalUrl)" title="Open in Azure portal">{{ row.name }}</a>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="active">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Active</th>
+          <td mat-cell *matCellDef="let row" class="num">{{ row.active }}</td>
+        </ng-container>
+        <ng-container matColumnDef="deadLetter">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Dead-letter</th>
+          <td mat-cell *matCellDef="let row" class="num" [class.has-dead-letters]="row.deadLetter > 0">{{ row.deadLetter }}</td>
+        </ng-container>
+        <ng-container matColumnDef="scheduled">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Scheduled</th>
+          <td mat-cell *matCellDef="let row" class="num">{{ row.scheduled }}</td>
+        </ng-container>
+        <ng-container matColumnDef="transfer">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Transfer</th>
+          <td mat-cell *matCellDef="let row" class="num">{{ row.transfer }}</td>
+        </ng-container>
+        <ng-container matColumnDef="total">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Total</th>
+          <td mat-cell *matCellDef="let row" class="num">{{ row.total }}</td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns; sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns"></tr>
+      </table>
+    </div>
+  }
+</div>

@@ -21,6 +21,7 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
     jenkins_jobs: null,
     jenkins_folders: null,
     jenkins_excluded_paths: null,
+    jenkins_long_running_minutes: null,
     jira_url: null,
     jira_token: null,
     jira_jql_filter: null,
@@ -36,6 +37,7 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
     docker_compose_path: null,
     pull_start_command: null,
     docker_favorite_services: [],
+    servicebus_namespaces: [],
     ...overrides,
   };
 }

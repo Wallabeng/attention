@@ -117,6 +117,10 @@ export class ShellService {
     return invoke<void>(CMD.dockerServiceLogsStop, {operationId});
   }
 
+  azureAccessToken(): Promise<string> {
+    return invoke<string>(CMD.azureAccessToken);
+  }
+
   /** Thin dynamic-import wrapper around @tauri-apps/api/event, mirroring the existing
    *  dynamic-import pattern used for autostart/notifications. Returns a no-op unlisten
    *  function when running outside Tauri (e.g. `ng serve` in a plain browser). */

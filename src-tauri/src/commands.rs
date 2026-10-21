@@ -185,6 +185,24 @@ pub struct Config {
     /// listed ahead of all others, regardless of state.
     #[serde(default)]
     pub docker_favorite_services: Vec<String>,
+    /// Azure Service Bus namespaces (and the entities to watch in each) shown in the
+    /// Service Bus tab. Contains no secrets: access is via the `az` CLI's Azure AD token.
+    #[serde(default)]
+    pub servicebus_namespaces: Vec<ServiceBusNamespace>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ServiceBusNamespace {
+    /// Display name in the table.
+    pub name: String,
+    pub subscription_id: String,
+    pub resource_group: String,
+    /// Service Bus namespace resource name (not the full host name).
+    pub namespace: String,
+    /// Entities to show, as ARM sub-paths: `queues/{q}`, `topics/{t}` or
+    /// `topics/{t}/subscriptions/{s}`.
+    #[serde(default)]
+    pub entities: Vec<String>,
 }
 
 /// Service name under which all credentials are namespaced in the OS keychain.
@@ -1321,4 +1339,27 @@ pub async fn docker_service_logs_stop(
         let _ = child.kill().await;
     }
     Ok(())
+}
+
+/// Azure AD access token for the ARM API, from the user's `az login` session. Run through
+/// the login shell (like the custom Pull & Start command) so a GUI-launched app finds `az`.
+/// The shell's rc files may print noise, so only the last stdout line is taken as the token.
+#[tauri::command]
+pub async fn azure_access_token() -> Result<String, String> {
+    let mut cmd = shell_command(
+        "az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv",
+    )?;
+    let output = cmd.output().await.map_err(|e| format!("could not run az: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let last = stderr.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("az failed");
+        return Err(format!("az account get-access-token failed (run `az login`?): {last}"));
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| "az returned no token".to_string())
 }

@@ -40,5 +40,10 @@
     "title": "Pull & Start works in the installed app",
     "description": "The custom Pull & Start command now runs in your login shell, so scripts and tools found in a terminal are also found when the app is launched from the Dock.",
     "version": "1.2.2"
+  },
+  {
+    "id": "servicebus-tab",
+    "title": "Service Bus tab",
+    "description": "A new tab after Docker shows message counts for the queues, topics and subscriptions you pick in Settings. It uses your az login with the Reader role, so no Service Bus keys are needed."
   }
 ]

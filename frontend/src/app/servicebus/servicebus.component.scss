@@ -1,0 +1,69 @@
+.servicebus-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.servicebus-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+
+  .spacer {
+    flex: 1;
+  }
+
+  .filter-field {
+    width: 280px;
+  }
+
+  .row-count {
+    font-size: 13px;
+    opacity: 0.7;
+  }
+}
+
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.num {
+  text-align: right;
+}
+
+.has-dead-letters {
+  color: #b3261e;
+  font-weight: 500;
+}
+
+.error-banner {
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  background: #fdecea;
+  color: #611a15;
+  border-radius: 4px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 16px;
+  opacity: 0.7;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

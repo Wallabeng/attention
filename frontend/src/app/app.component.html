@@ -4,6 +4,7 @@
   <button mat-button (click)="activeView.set('inbox')" [class.active-view]="activeView() === 'inbox'" [attr.aria-pressed]="activeView() === 'inbox'">Inbox</button>
   <button mat-button (click)="activeView.set('monitoring')" [class.active-view]="activeView() === 'monitoring'" [attr.aria-pressed]="activeView() === 'monitoring'">Monitoring</button>
   <button mat-button (click)="activeView.set('docker')" [class.active-view]="activeView() === 'docker'" [attr.aria-pressed]="activeView() === 'docker'">Docker</button>
+  <button mat-button (click)="activeView.set('servicebus')" [class.active-view]="activeView() === 'servicebus'" [attr.aria-pressed]="activeView() === 'servicebus'">Service Bus</button>
   <span class="spacer"></span>
   <span class="sync-timer">{{ items.nextSyncIn() }}s</span>
   <button mat-icon-button (click)="toggleSidebar()" aria-label="Toggle sources sidebar"
@@ -30,4 +31,5 @@
   </div>
   <app-monitoring [hidden]="activeView() !== 'monitoring'"/>
   <app-docker [hidden]="activeView() !== 'docker'"/>
+  <app-servicebus [hidden]="activeView() !== 'servicebus'"/>
 </div>
