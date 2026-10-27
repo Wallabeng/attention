@@ -10,6 +10,7 @@
         <mat-label>Filter</mat-label>
         <input matInput [ngModel]="filterText()" (ngModelChange)="filterText.set($event)"/>
       </mat-form-field>
+      <mat-checkbox [checked]="onlyWithMessages()" (change)="onlyWithMessages.set($event.checked)">Only entities with messages</mat-checkbox>
       <span class="row-count">{{ visibleRows().length }} entities</span>
       <span class="spacer"></span>
       <button mat-icon-button (click)="refresh()" [disabled]="loading()" aria-label="Reload Service Bus">

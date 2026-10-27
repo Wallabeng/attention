@@ -1,6 +1,7 @@
 import {Component, computed, OnInit, signal} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
+import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatDialog} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -15,7 +16,7 @@ import {ServiceBusPeekDialogComponent} from './servicebus-peek-dialog.component'
 @Component({
   selector: 'app-servicebus',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSortModule, MatTableModule],
+  imports: [FormsModule, MatButtonModule, MatCheckboxModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSortModule, MatTableModule],
   templateUrl: './servicebus.component.html',
   styleUrl: './servicebus.component.scss',
 })
@@ -28,13 +29,14 @@ export class ServiceBusComponent implements OnInit {
   errors = signal<string[]>([]);
   rows = signal<ServiceBusEntityRow[]>([]);
   filterText = signal('');
+  onlyWithMessages = signal(false);
   sort = signal<Sort>({active: 'namespace', direction: 'asc'});
 
   readonly visibleRows = computed(() => {
     const needle = this.filterText().trim().toLowerCase();
-    const rows = needle
-      ? this.rows().filter(r => `${r.namespace} ${r.type} ${r.name}`.toLowerCase().includes(needle))
-      : [...this.rows()];
+    const onlyWithMessages = this.onlyWithMessages();
+    const rows = this.rows().filter(r =>
+      (!needle || `${r.namespace} ${r.type} ${r.name}`.toLowerCase().includes(needle)) && (!onlyWithMessages || r.total > 0));
     const {active, direction} = this.sort();
     if (!direction) return rows;
     const factor = direction === 'asc' ? 1 : -1;
