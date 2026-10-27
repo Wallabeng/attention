@@ -50,6 +50,7 @@
   {
     "id": "servicebus-peek",
     "title": "Peek Service Bus messages",
-    "description": "Each queue and subscription row has a peek button that shows its first 20 active or dead-letter messages (body, properties, dead-letter reason) without locking or consuming them. It needs the Azure Service Bus Data Receiver role on the namespace."
+    "description": "Each queue and subscription row has a peek button that shows its first 20 active or dead-letter messages (body, properties, dead-letter reason) without locking or consuming them. It needs the Azure Service Bus Data Receiver role on the namespace.",
+    "version": "1.4.0"
   }
 ]
