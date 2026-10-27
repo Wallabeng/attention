@@ -5,6 +5,7 @@ import {DockerServiceStatus} from './docker/docker-service-status.model';
 import {Item} from './item.model';
 import {TenantGridResult} from './monitoring/tenant-grid-result.model';
 import {CMD} from './tauri-commands';
+import type {PeekedMessage} from './servicebus/servicebus-api.util';
 
 @Injectable({providedIn: 'root'})
 export class ShellService {
@@ -119,6 +120,11 @@ export class ShellService {
 
   azureAccessToken(): Promise<string> {
     return invoke<string>(CMD.azureAccessToken);
+  }
+
+  /** Non-destructive AMQP peek of a queue or subscription (`entity` = ARM sub-path). */
+  servicebusPeek(namespace: string, entity: string, deadLetter: boolean, count: number): Promise<PeekedMessage[]> {
+    return invoke<PeekedMessage[]>(CMD.servicebusPeek, {namespace, entity, deadLetter, count});
   }
 
   /** Thin dynamic-import wrapper around @tauri-apps/api/event, mirroring the existing

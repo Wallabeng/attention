@@ -24,4 +24,5 @@ export const CMD = {
   dockerServiceLogsStart: 'docker_service_logs_start',
   dockerServiceLogsStop: 'docker_service_logs_stop',
   azureAccessToken: 'azure_access_token',
+  servicebusPeek: 'servicebus_peek',
 } as const;

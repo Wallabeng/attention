@@ -1,6 +1,7 @@
 import {Component, computed, OnInit, signal} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
+import {MatDialog} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
@@ -9,6 +10,7 @@ import {MatTableModule} from '@angular/material/table';
 import {ConfigService} from '../config.service';
 import {ShellService} from '../shell.service';
 import {fetchNamespaceRows, ServiceBusEntityRow} from './servicebus-api.util';
+import {ServiceBusPeekDialogComponent} from './servicebus-peek-dialog.component';
 
 @Component({
   selector: 'app-servicebus',
@@ -18,7 +20,7 @@ import {fetchNamespaceRows, ServiceBusEntityRow} from './servicebus-api.util';
   styleUrl: './servicebus.component.scss',
 })
 export class ServiceBusComponent implements OnInit {
-  readonly columns = ['namespace', 'type', 'name', 'active', 'deadLetter', 'scheduled', 'transfer', 'total'];
+  readonly columns = ['namespace', 'type', 'name', 'active', 'deadLetter', 'scheduled', 'transfer', 'total', 'actions'];
 
   configured = signal(false);
   loading = signal(false);
@@ -43,7 +45,16 @@ export class ServiceBusComponent implements OnInit {
     });
   });
 
-  constructor(private config: ConfigService, private shell: ShellService) {
+  constructor(private config: ConfigService, private shell: ShellService, private dialog: MatDialog) {
+  }
+
+  /** Topics themselves have no messages to peek — only queues and subscriptions do. */
+  canPeek(row: ServiceBusEntityRow): boolean {
+    return row.type !== 'topic';
+  }
+
+  peek(row: ServiceBusEntityRow): void {
+    this.dialog.open(ServiceBusPeekDialogComponent, {data: row, width: '800px', maxWidth: '95vw'});
   }
 
   ngOnInit(): Promise<void> {

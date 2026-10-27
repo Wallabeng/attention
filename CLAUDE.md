@@ -61,7 +61,7 @@ noted TODOs. The cognitive overhead of remembering _where_ to look is the proble
   any service's state or health changes between polls (e.g. a crash or a recovery) — see
   [Docker Orchestration](#docker-orchestration).
 - **Azure Service Bus**: separate tab after Docker showing one flat, sortable, filterable table of every queue, topic and
-  subscription (with active / dead-letter / scheduled / transfer / total message counts) the user explicitly selected,
+  subscription (with active / dead-letter / scheduled / transfer / total message counts, plus a peek-messages dialog) the user explicitly selected,
   across all configured namespaces at once — see [Azure Service Bus](#azure-service-bus).
 
 ## Stack
@@ -116,6 +116,7 @@ attention/
 │   │   │   │   ├── servicebus.component.*
 │   │   │   │   ├── servicebus-namespace.model.ts
 │   │   │   │   ├── servicebus-namespace-dialog.component.ts  # Settings' per-namespace dialog: coordinates + entity picker
+│   │   │   │   ├── servicebus-peek-dialog.component.ts       # Peek dialog (first 20 active / dead-letter messages)
 │   │   │   │   └── servicebus-api.util.ts       # ARM client: list entities, fetch message counts
 │   │   │   ├── docker/                          # Docker orchestration tab
 │   │   │   │   ├── docker.component.*
@@ -201,6 +202,7 @@ in the app manifest in `src-tauri/build.rs` and allowed (`allow-<name-with-dashe
 | `docker_service_logs_start` | `compose_path, service, operation_id`                                 | `Result<(), String>` — spawns `docker compose logs --tail 200 -f <service>` detached, streaming it as `docker://output` events tagged with `operation_id`; returns as soon as the process is spawned rather than waiting for it to exit |
 | `docker_service_logs_stop`  | `operation_id: String`                                                | `Result<(), String>` — kills the tracked log-follow child for `operation_id`, if still running; a no-op if it already exited or the id is unknown |
 | `azure_access_token`        | —                                                                     | `Result<String, String>` — runs `az account get-access-token` for the ARM resource via the login shell; used by the Service Bus tab |
+| `servicebus_peek`           | `namespace, entity, dead_letter, count`                               | `Result<Vec<PeekedMessage>, String>` — non-destructive AMQP peek of a queue/subscription (`entity` = ARM sub-path); fetches its own `https://servicebus.azure.net` token via `az` |
 
 `set_badge_count` updates the window title (`Attention (N)` or plain `Attention`), the OS dock/taskbar badge via
 `WebviewWindow::set_badge_count`, and the tray tooltip. The count itself is computed in Angular (`ItemsService`) since
@@ -499,6 +501,20 @@ button. Independent of the `Item`/`SyncProvider` model.
   (`.../queues/{q}`, `.../topics/{t}`, `.../topics/{t}/subscriptions/{s}`, `api-version=2021-11-01`) and reads
   `properties.countDetails`. Subscription rows are named `topic / subscription`. A failing entity (e.g. deleted)
   shows an error banner while the other rows still render. Each row's name is a link to the entity's Azure portal blade (`portalUrl`, `https://portal.azure.com/#resource/<ARM id>/overview`), opened in the default browser via `ShellService.openUrl`. Namespaces without selected entities are skipped.
+- **Peek messages**: queue and subscription rows (not topics) have an eye button opening
+  `ServiceBusPeekDialogComponent`, which lists the first 20 messages (Active / Dead-letter toggle; defaults to
+  Dead-letter when the row has any) with body (JSON pretty-printed), message properties, application properties and
+  dead-letter reason/description. The REST API has no true peek (only peek-lock, which locks and bumps the delivery
+  count), so `servicebus_peek` uses AMQP via the `azservicebus` crate (with `azure_core`, `async-trait`, `time`,
+  `fe2o3-amqp-types`, `base64`, `flate2` as supporting deps): a `StaticTokenCredential` wraps a token from
+  `az account get-access-token --resource https://servicebus.azure.net` (factored into the shared `az_access_token`
+  helper), a receiver is opened (sub-queue `DeadLetter` when requested), `peek_messages(count, None)` is called, then
+  everything is disposed. Nothing is locked or consumed. Needs the **Azure Service Bus Data Receiver** role on the
+  namespace in addition to `Reader`; bodies of messages whose application properties contain `Compressed` = `Bool(true)`
+  (the debug-formatted AMQP bool) are base64-decoded and zlib-inflated to UTF-8 (`decompress_body`, via `base64` +
+  `flate2`; mirrors the Java producers' `InflaterOutputStream`), falling back to the raw body plus a
+  `Decompression failed` property if that fails; a missing role surfaces as the error text in the dialog. Rows carry
+  `namespaceName` (the bare namespace, used to build `<ns>.servicebus.windows.net`) and `entityPath` for this.
 - Loaded on tab init and via the refresh button (no polling). Requires the `az` CLI on the user's shell `PATH`.
 
 ## Dev Commands

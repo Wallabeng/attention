@@ -1341,14 +1341,13 @@ pub async fn docker_service_logs_stop(
     Ok(())
 }
 
-/// Azure AD access token for the ARM API, from the user's `az login` session. Run through
+/// Azure AD access token for `resource`, from the user's `az login` session. Run through
 /// the login shell (like the custom Pull & Start command) so a GUI-launched app finds `az`.
 /// The shell's rc files may print noise, so only the last stdout line is taken as the token.
-#[tauri::command]
-pub async fn azure_access_token() -> Result<String, String> {
-    let mut cmd = shell_command(
-        "az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv",
-    )?;
+async fn az_access_token(resource: &str) -> Result<String, String> {
+    let mut cmd = shell_command(&format!(
+        "az account get-access-token --resource {resource} --query accessToken -o tsv"
+    ))?;
     let output = cmd.output().await.map_err(|e| format!("could not run az: {e}"))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -1362,4 +1361,162 @@ pub async fn azure_access_token() -> Result<String, String> {
         .find(|l| !l.is_empty())
         .map(str::to_string)
         .ok_or_else(|| "az returned no token".to_string())
+}
+
+/// Azure AD access token for the ARM API; used by the Service Bus tab's entity listing/counts.
+#[tauri::command]
+pub async fn azure_access_token() -> Result<String, String> {
+    az_access_token("https://management.azure.com/").await
+}
+
+/// Hands a token fetched once via `az` to the Service Bus AMQP client. The peek is a single
+/// short-lived connection, so the token is never refreshed.
+#[derive(Debug)]
+struct StaticTokenCredential(String);
+
+#[async_trait::async_trait]
+impl azure_core::credentials::TokenCredential for StaticTokenCredential {
+    async fn get_token(
+        &self,
+        _scopes: &[&str],
+        _options: Option<azure_core::credentials::TokenRequestOptions>,
+    ) -> azure_core::Result<azure_core::credentials::AccessToken> {
+        Ok(azure_core::credentials::AccessToken::new(
+            self.0.clone(),
+            time::OffsetDateTime::now_utc() + time::Duration::minutes(30),
+        ))
+    }
+}
+
+#[derive(Serialize)]
+pub struct PeekedMessage {
+    pub sequence_number: i64,
+    pub message_id: Option<String>,
+    pub enqueued_time_ms: i64,
+    pub subject: Option<String>,
+    pub content_type: Option<String>,
+    pub correlation_id: Option<String>,
+    pub session_id: Option<String>,
+    pub delivery_count: Option<u32>,
+    pub dead_letter_reason: Option<String>,
+    pub dead_letter_error_description: Option<String>,
+    pub properties: Vec<(String, String)>,
+    pub body: String,
+}
+
+fn peeked_to_dto(m: &azservicebus::ServiceBusPeekedMessage) -> PeekedMessage {
+    let properties = m
+        .application_properties()
+        .map(|p| {
+            p.0.iter()
+                .map(|(k, v)| {
+                    let value = match v {
+                        fe2o3_amqp_types::primitives::SimpleValue::String(s) => s.clone(),
+                        other => format!("{other:?}"),
+                    };
+                    (k.clone(), value)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut properties: Vec<(String, String)> = properties;
+    let compressed = properties.iter().any(|(k, v)| k == "Compressed" && v == "Bool(true)");
+    PeekedMessage {
+        sequence_number: m.sequence_number(),
+        message_id: m.message_id().map(|s| s.into_owned()),
+        enqueued_time_ms: (m.enqueued_time().unix_timestamp_nanos() / 1_000_000) as i64,
+        subject: m.subject().map(str::to_string),
+        content_type: m.content_type().map(str::to_string),
+        correlation_id: m.correlation_id().map(|s| s.into_owned()),
+        session_id: m.session_id().map(str::to_string),
+        delivery_count: m.delivery_count(),
+        dead_letter_reason: m.dead_letter_reason().map(str::to_string),
+        dead_letter_error_description: m.dead_letter_error_description().map(str::to_string),
+        body: match m.body() {
+            Ok(bytes) if compressed => decompress_body(bytes).unwrap_or_else(|e| {
+                // Keep the raw body visible so a wrong guess at the encoding is still debuggable.
+                properties.push(("Decompression failed".to_string(), e));
+                String::from_utf8_lossy(bytes).into_owned()
+            }),
+            Ok(bytes) => String::from_utf8_lossy(bytes).into_owned(),
+            Err(_) => "<body is not a single binary section>".to_string(),
+        },
+        properties,
+    }
+}
+
+/// Bodies of messages sent with the `Compressed` application property are base64 text of a
+/// zlib stream (Java's `InflaterOutputStream`) holding UTF-8.
+fn decompress_body(bytes: &[u8]) -> Result<String, String> {
+    use base64::Engine;
+    use std::io::Read;
+
+    let compact: Vec<u8> = bytes.iter().copied().filter(|b| !b.is_ascii_whitespace()).collect();
+    let deflated = base64::engine::general_purpose::STANDARD
+        .decode(compact)
+        .map_err(|e| format!("base64: {e}"))?;
+    let mut text = String::new();
+    flate2::read::ZlibDecoder::new(deflated.as_slice())
+        .read_to_string(&mut text)
+        .map_err(|e| format!("zlib: {e}"))?;
+    Ok(text)
+}
+
+/// Non-destructively peeks up to `count` messages from a queue or topic subscription over AMQP
+/// (the REST API has no true peek). `entity` is the ARM sub-path (`queues/{q}` or
+/// `topics/{t}/subscriptions/{s}`); `namespace` is the bare namespace name. Authenticates with an
+/// Azure AD token from `az` (needs the `Azure Service Bus Data Receiver` role).
+#[tauri::command]
+pub async fn servicebus_peek(
+    namespace: String,
+    entity: String,
+    dead_letter: bool,
+    count: u32,
+) -> Result<Vec<PeekedMessage>, String> {
+    use azservicebus::{ServiceBusClient, ServiceBusClientOptions, ServiceBusReceiverOptions, SubQueue};
+
+    let token = az_access_token("https://servicebus.azure.net").await?;
+    let host = format!("{namespace}.servicebus.windows.net");
+    let mut client = ServiceBusClient::new_from_token_credential(
+        host,
+        std::sync::Arc::new(StaticTokenCredential(token)),
+        ServiceBusClientOptions::default(),
+    )
+    .await
+    .map_err(|e| format!("could not connect to Service Bus: {e}"))?;
+    let options = ServiceBusReceiverOptions {
+        sub_queue: if dead_letter { SubQueue::DeadLetter } else { SubQueue::None },
+        ..Default::default()
+    };
+    let parts: Vec<&str> = entity.split('/').collect();
+    let receiver = match parts.as_slice() {
+        ["queues", queue] => client.create_receiver_for_queue(*queue, options).await,
+        ["topics", topic, "subscriptions", sub] => {
+            client.create_receiver_for_subscription(*topic, *sub, options).await
+        }
+        _ => return Err(format!("cannot peek entity '{entity}' (only queues and subscriptions)")),
+    };
+    let mut receiver = receiver.map_err(|e| format!("could not open receiver: {e}"))?;
+    let peeked = receiver.peek_messages(count, None).await;
+    let _ = receiver.dispose().await;
+    let _ = client.dispose().await;
+    let peeked = peeked.map_err(|e| format!("peek failed (needs the Azure Service Bus Data Receiver role): {e}"))?;
+    Ok(peeked.iter().map(peeked_to_dto).collect())
+}
+
+#[cfg(test)]
+mod servicebus_tests {
+    use super::decompress_body;
+
+    #[test]
+    fn decompresses_base64_zlib_utf8() {
+        let body = b"eJyrVspIzcnJV7JSKj+8rSgnRakWAEARBwE=\n";
+        assert_eq!(decompress_body(body).unwrap(), "{\"hello\":\"w\u{f6}rld\"}");
+    }
+
+    #[test]
+    fn reports_invalid_input() {
+        assert!(decompress_body(b"not base64!").unwrap_err().starts_with("base64"));
+        assert!(decompress_body(b"aGVsbG8=").unwrap_err().starts_with("zlib"));
+    }
 }

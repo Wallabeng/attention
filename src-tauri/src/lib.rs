@@ -2,7 +2,7 @@ mod commands;
 mod updater;
 
 use commands::{
-    azure_access_token, cancel_grid_fetch, confirm_stage_login, create_item, delete_item, docker_list_services,
+    azure_access_token, servicebus_peek, cancel_grid_fetch, confirm_stage_login, create_item, delete_item, docker_list_services,
     docker_pull_start, docker_service_action, docker_service_logs_start, docker_service_logs_stop,
     docker_service_status, fetch_grid_data, get_config, get_items, get_last_seen_feature, http_request, notify,
     open_log_file, open_stage_login, open_url, report_grid_result, run_in_terminal, set_badge_count, set_config, set_last_seen_feature,
@@ -141,7 +141,8 @@ pub fn run() {
             docker_pull_start,
             docker_service_logs_start,
             docker_service_logs_stop,
-            azure_access_token
+            azure_access_token,
+            servicebus_peek
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
