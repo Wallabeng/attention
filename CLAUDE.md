@@ -482,7 +482,7 @@ no settings toggle to disable it.
 
 A **Service Bus** tab (sibling after Docker via `AppComponent`'s `activeView` signal) shows one flat table of the
 queues, topics and subscriptions the user explicitly selected, across all configured namespaces, with columns
-Namespace, Type, Name, Active, Dead-letter, Scheduled, Transfer, Total. Sortable, text-filterable, with a refresh
+Namespace, Type, Name, Active, Dead-letter, Scheduled, Transfer, Total. Sortable, text-filterable, with an "Only entities with messages" checkbox (hides rows with `total === 0`; off by default), with a refresh
 button. Independent of the `Item`/`SyncProvider` model.
 
 - **Auth**: Azure AD via the `az` CLI, no stored secrets and no Service Bus `Manage` key. The `azure_access_token`
