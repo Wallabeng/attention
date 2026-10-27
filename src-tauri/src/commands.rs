@@ -1419,6 +1419,8 @@ fn peeked_to_dto(m: &azservicebus::ServiceBusPeekedMessage) -> PeekedMessage {
                 .collect()
         })
         .unwrap_or_default();
+    let mut properties: Vec<(String, String)> = properties;
+    let compressed = properties.iter().any(|(k, v)| k == "Compressed" && v == "Bool(true)");
     PeekedMessage {
         sequence_number: m.sequence_number(),
         message_id: m.message_id().map(|s| s.into_owned()),
@@ -1430,12 +1432,34 @@ fn peeked_to_dto(m: &azservicebus::ServiceBusPeekedMessage) -> PeekedMessage {
         delivery_count: m.delivery_count(),
         dead_letter_reason: m.dead_letter_reason().map(str::to_string),
         dead_letter_error_description: m.dead_letter_error_description().map(str::to_string),
+        body: match m.body() {
+            Ok(bytes) if compressed => decompress_body(bytes).unwrap_or_else(|e| {
+                // Keep the raw body visible so a wrong guess at the encoding is still debuggable.
+                properties.push(("Decompression failed".to_string(), e));
+                String::from_utf8_lossy(bytes).into_owned()
+            }),
+            Ok(bytes) => String::from_utf8_lossy(bytes).into_owned(),
+            Err(_) => "<body is not a single binary section>".to_string(),
+        },
         properties,
-        body: m
-            .body()
-            .map(|b| String::from_utf8_lossy(b).into_owned())
-            .unwrap_or_else(|_| "<body is not a single binary section>".to_string()),
     }
+}
+
+/// Bodies of messages sent with the `Compressed` application property are base64 text of a
+/// zlib stream (Java's `InflaterOutputStream`) holding UTF-8.
+fn decompress_body(bytes: &[u8]) -> Result<String, String> {
+    use base64::Engine;
+    use std::io::Read;
+
+    let compact: Vec<u8> = bytes.iter().copied().filter(|b| !b.is_ascii_whitespace()).collect();
+    let deflated = base64::engine::general_purpose::STANDARD
+        .decode(compact)
+        .map_err(|e| format!("base64: {e}"))?;
+    let mut text = String::new();
+    flate2::read::ZlibDecoder::new(deflated.as_slice())
+        .read_to_string(&mut text)
+        .map_err(|e| format!("zlib: {e}"))?;
+    Ok(text)
 }
 
 /// Non-destructively peeks up to `count` messages from a queue or topic subscription over AMQP
@@ -1478,4 +1502,21 @@ pub async fn servicebus_peek(
     let _ = client.dispose().await;
     let peeked = peeked.map_err(|e| format!("peek failed (needs the Azure Service Bus Data Receiver role): {e}"))?;
     Ok(peeked.iter().map(peeked_to_dto).collect())
+}
+
+#[cfg(test)]
+mod servicebus_tests {
+    use super::decompress_body;
+
+    #[test]
+    fn decompresses_base64_zlib_utf8() {
+        let body = b"eJyrVspIzcnJV7JSKj+8rSgnRakWAEARBwE=\n";
+        assert_eq!(decompress_body(body).unwrap(), "{\"hello\":\"w\u{f6}rld\"}");
+    }
+
+    #[test]
+    fn reports_invalid_input() {
+        assert!(decompress_body(b"not base64!").unwrap_err().starts_with("base64"));
+        assert!(decompress_body(b"aGVsbG8=").unwrap_err().starts_with("zlib"));
+    }
 }

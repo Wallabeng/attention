@@ -506,11 +506,14 @@ button. Independent of the `Item`/`SyncProvider` model.
   Dead-letter when the row has any) with body (JSON pretty-printed), message properties, application properties and
   dead-letter reason/description. The REST API has no true peek (only peek-lock, which locks and bumps the delivery
   count), so `servicebus_peek` uses AMQP via the `azservicebus` crate (with `azure_core`, `async-trait`, `time`,
-  `fe2o3-amqp-types` as supporting deps): a `StaticTokenCredential` wraps a token from
+  `fe2o3-amqp-types`, `base64`, `flate2` as supporting deps): a `StaticTokenCredential` wraps a token from
   `az account get-access-token --resource https://servicebus.azure.net` (factored into the shared `az_access_token`
   helper), a receiver is opened (sub-queue `DeadLetter` when requested), `peek_messages(count, None)` is called, then
   everything is disposed. Nothing is locked or consumed. Needs the **Azure Service Bus Data Receiver** role on the
-  namespace in addition to `Reader`; a missing role surfaces as the error text in the dialog. Rows carry
+  namespace in addition to `Reader`; bodies of messages whose application properties contain `Compressed` = `Bool(true)`
+  (the debug-formatted AMQP bool) are base64-decoded and zlib-inflated to UTF-8 (`decompress_body`, via `base64` +
+  `flate2`; mirrors the Java producers' `InflaterOutputStream`), falling back to the raw body plus a
+  `Decompression failed` property if that fails; a missing role surfaces as the error text in the dialog. Rows carry
   `namespaceName` (the bare namespace, used to build `<ns>.servicebus.windows.net`) and `entityPath` for this.
 - Loaded on tab init and via the refresh button (no polling). Requires the `az` CLI on the user's shell `PATH`.
 
