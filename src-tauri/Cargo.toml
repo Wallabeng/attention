@@ -33,3 +33,8 @@ open = "3"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 url = "2"
 percent-encoding = "2"
+azservicebus = "0.25"
+azure_core = "0.25"
+async-trait = "0.1"
+fe2o3-amqp-types = "0.14"
+time = "0.3"

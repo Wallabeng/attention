@@ -37,6 +37,7 @@
     "allow-docker-service-logs-start",
     "allow-docker-service-logs-stop",
     "allow-azure-access-token",
+    "allow-servicebus-peek",
     "updater:default",
     "dialog:allow-message",
     "dialog:allow-ask"

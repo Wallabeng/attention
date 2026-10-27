@@ -12,6 +12,25 @@ export interface ServiceBusEntityRow {
   total: number;
   /** Azure portal blade for the entity. */
   portalUrl: string;
+  /** Bare namespace name (not the display name) and ARM sub-path — what peeking needs. */
+  namespaceName: string;
+  entityPath: string;
+}
+
+/** A message returned by `ShellService.servicebusPeek`. */
+export interface PeekedMessage {
+  sequence_number: number;
+  message_id: string | null;
+  enqueued_time_ms: number;
+  subject: string | null;
+  content_type: string | null;
+  correlation_id: string | null;
+  session_id: string | null;
+  delivery_count: number | null;
+  dead_letter_reason: string | null;
+  dead_letter_error_description: string | null;
+  properties: [string, string][];
+  body: string;
 }
 
 export interface ServiceBusEntityRef {
@@ -121,6 +140,7 @@ export async function fetchNamespaceRows(
     const row: ServiceBusEntityRow = {
       namespace: ns.name, type, name: label, active, deadLetter, scheduled, transfer,
       total: active + deadLetter + scheduled + transfer, portalUrl: portalUrl(ns, path),
+      namespaceName: ns.namespace, entityPath: path,
     };
     return row;
   }));

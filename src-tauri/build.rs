@@ -28,6 +28,7 @@ fn main() {
         "docker_service_logs_start",
         "docker_service_logs_stop",
         "azure_access_token",
+        "servicebus_peek",
       ]),
     ),
   )
