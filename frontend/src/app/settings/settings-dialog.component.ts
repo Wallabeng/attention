@@ -107,6 +107,9 @@ import {SettingsSection} from '../syncs/sync-provider';
     </mat-dialog-actions>
   `,
   styles: [`
+    .field {
+      margin-bottom: 25px;
+    }
     mat-dialog-content {
       padding-top: 8px !important;
       display: flex;

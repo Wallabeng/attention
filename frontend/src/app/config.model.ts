@@ -26,6 +26,7 @@ export interface Config {
   jira_jql_filter: string | null;
   gerrit_repos_root: string | null;
   gerrit_keywords: string | null;
+  gerrit_ai_review_prompt: string | null;
   sonarqube_url: string | null;
   sonarqube_token: string | null;
   sonarqube_assigned_only: string | null;

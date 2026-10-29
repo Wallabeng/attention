@@ -52,5 +52,10 @@
     "title": "Peek Service Bus messages",
     "description": "Each queue and subscription row has a peek button that shows its first 20 active or dead-letter messages (body, properties, dead-letter reason) without locking or consuming them. It needs the Azure Service Bus Data Receiver role on the namespace.",
     "version": "1.4.0"
+  },
+  {
+    "id": "ai-review-prompt",
+    "title": "AI Review Prompt",
+    "description": "The prompt for AI review action of gerrit items is now configurable in settings"
   }
 ]

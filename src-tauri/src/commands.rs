@@ -156,6 +156,7 @@ pub struct Config {
     pub jira_jql_filter: Option<String>,
     pub gerrit_repos_root: Option<String>,
     pub gerrit_keywords: Option<String>,
+    pub gerrit_ai_review_prompt: Option<String>,
     pub sonarqube_url: Option<String>,
     pub sonarqube_token: Option<String>,
     pub sonarqube_assigned_only: Option<String>,

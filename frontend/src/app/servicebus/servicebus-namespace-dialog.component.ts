@@ -75,7 +75,7 @@ type EntityKind = 'queues' | 'topics';
             } @else if (subscriptionErrors()[entity.label]) {
               <p class="error indent">{{ subscriptionErrors()[entity.label] }}</p>
             } @else {
-              @for (sub of subscriptions()[entity.label] ?? []; track sub.path) {
+              @for (sub of subscriptions()[entity.label]; track sub.path) {
                 <div class="entity indent">
                   <mat-checkbox [checked]="selected().has(sub.path)" (change)="toggle(sub.path, $event.checked)">
                     {{ sub.label.split(' / ')[1] }}

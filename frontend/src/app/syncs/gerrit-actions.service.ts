@@ -4,6 +4,8 @@ import {Item} from '../item.model';
 import {ActionProvider, ItemAction} from './item-action';
 import {ShellService} from '../shell.service';
 
+export const DEFAULT_AI_REVIEW_PROMPT = 'review gerrit change {change} and post draft comments';
+
 @Injectable()
 export class GerritActionsService extends ActionProvider {
   override readonly source = 'gerrit';
@@ -39,7 +41,10 @@ export class GerritActionsService extends ActionProvider {
 
     const changeNumber = item.id.replace(/^gerrit-/, '');
     const workingDir = `${config.gerrit_repos_root}/${project}`;
-    const command = `copilot -i "review gerrit change ${changeNumber} and post draft comments"`;
+    const prompt = (config.gerrit_ai_review_prompt?.trim() || DEFAULT_AI_REVIEW_PROMPT)
+      .replaceAll('{change}', changeNumber)
+      .replace(/[\\"$`]/g, '\\$&');
+    const command = `copilot -i "${prompt}"`;
     const allowTools = ` --allow-tool='gerrit(list_change_files),gerrit(get_commit_message),gerrit(get_change_details),gerrit(list_change_comments),gerrit(list_draft_comments),gerrit(get_file_diff),gerrit(post_draft_comment)'`;
     const mcps = ` --enable-mcp-server gerrit`;
 

@@ -26,6 +26,7 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
     jira_token: null,
     jira_jql_filter: null,
     gerrit_repos_root: null,
+    gerrit_ai_review_prompt: null,
     gerrit_keywords: null,
     sonarqube_url: null,
     sonarqube_token: null,

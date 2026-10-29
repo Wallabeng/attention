@@ -3,6 +3,7 @@ import {ConfigService} from '../config.service';
 import {Item} from '../item.model';
 import {SettingsSection, SyncProvider} from './sync-provider';
 import {ShellService} from '../shell.service';
+import {DEFAULT_AI_REVIEW_PROMPT} from './gerrit-actions.service';
 
 interface GerritChange {
   _number: number;
@@ -68,6 +69,13 @@ export class GerritSyncService extends SyncProvider {
           type: 'text',
           placeholder: '~/src',
           hint: 'Parent directory containing local Gerrit repo clones. Used by AI Review action.',
+        },
+        {
+          configKey: 'gerrit_ai_review_prompt',
+          label: 'AI Review prompt',
+          type: 'textarea',
+          placeholder: DEFAULT_AI_REVIEW_PROMPT,
+          hint: 'Prompt sent to copilot by the AI Review action. {change} is replaced by the change number. Empty = default.',
         },
         {
           configKey: 'gerrit_keywords',
