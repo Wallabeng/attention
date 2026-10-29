@@ -56,6 +56,7 @@
   {
     "id": "ai-review-prompt",
     "title": "AI Review Prompt",
-    "description": "The prompt for AI review action of gerrit items is now configurable in settings"
+    "description": "The prompt for AI review action of gerrit items is now configurable in settings",
+    "version": "1.5.0"
   }
 ]
